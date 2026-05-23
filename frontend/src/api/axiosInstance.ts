@@ -6,14 +6,17 @@ import toast from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore'
 import type { ApiResponse, AuthResponse } from '@/types/auth.types'
 
+// @ts-ignore
+const BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080/api'
+
 const axiosInstance = axios.create({
-  baseURL: '/api',
-  timeout: 30000,
+    baseURL: BASE_URL,
+    timeout: 30000,
 })
 
 const plainAxios = axios.create({
-  baseURL: '/api',
-  timeout: 30000,
+    baseURL: BASE_URL,
+    timeout: 30000,
 })
 
 let isRefreshing = false
