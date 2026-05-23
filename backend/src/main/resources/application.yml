@@ -4,6 +4,9 @@ server:
     context-path: /api
 
 spring:
+  config:
+    import: optional:file:.env[.properties]
+
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}

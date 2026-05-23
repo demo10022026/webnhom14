@@ -25,6 +25,15 @@
     </properties>
 
     <dependencies>
+
+        <!-- spring-dotenv -->
+
+        <dependency>
+            <groupId>me.paulschwarz</groupId>
+            <artifactId>spring-dotenv</artifactId>
+            <version>4.0.0</version>
+        </dependency>
+
         <!-- Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -74,12 +83,14 @@
             <artifactId>jjwt-api</artifactId>
             <version>${jjwt.version}</version>
         </dependency>
+
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
+
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
