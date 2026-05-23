@@ -1,0 +1,12 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Logs
+*.log
+logs/

@@ -1,0 +1,16 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Maven build
+target/
+
+# OS
+.DS_Store
+Thumbs.db
