@@ -52,6 +52,7 @@ app:
     allowed-origins:
       - ${CORS_ORIGIN_1:http://localhost:5173}
       - ${CORS_ORIGIN_2:http://localhost:3000}
+      - ${CORS_ORIGIN_3:https://enchanting-marigold-597279.netlify.app}
       - https://*.trycloudflare.com
 
   cloudinary:
