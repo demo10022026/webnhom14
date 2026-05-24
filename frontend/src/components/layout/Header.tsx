@@ -82,7 +82,7 @@ export default function Header() {
               <span className="opacity-30">|</span>
             </>
         )}
-        <Link to="/help" className="hover:text-white transition-colors">Hỗ trợ</Link>
+
       </div>
 
       {/* ── Main bar ── */}
