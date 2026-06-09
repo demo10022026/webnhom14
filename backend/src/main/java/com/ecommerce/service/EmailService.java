@@ -2,12 +2,21 @@ package com.ecommerce.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import jakarta.mail.internet.MimeMessage;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -15,21 +24,81 @@ import jakarta.mail.internet.MimeMessage;
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    private final ObjectMapper objectMapper;
+
+    @Value("${app.email.provider:smtp}")
+    private String emailProvider;
+
+    @Value("${app.email.brevo.api-key:}")
+    private String brevoApiKey;
+
+    @Value("${app.email.brevo.sender-email:}")
+    private String brevoSenderEmail;
+
+    @Value("${app.email.brevo.sender-name:ShopVN}")
+    private String brevoSenderName;
+
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
 
     @Async
     public void sendOtpEmail(String toEmail, String otp, String purpose) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setTo(toEmail);
-            helper.setSubject(getSubject(purpose));
-            helper.setText(buildHtml(otp, purpose), true);
-
-            mailSender.send(message);
+            String subject = getSubject(purpose);
+            String html = buildHtml(otp, purpose);
+            if ("brevo".equalsIgnoreCase(emailProvider)) {
+                sendWithBrevo(toEmail, subject, html);
+            } else {
+                sendWithSmtp(toEmail, subject, html);
+            }
             log.info("Đã gửi OTP email đến: {}", toEmail);
         } catch (Exception e) {
             log.error("Lỗi gửi email đến {}: {}", toEmail, e.getMessage());
+        }
+    }
+
+    private void sendWithSmtp(String toEmail, String subject, String html) throws Exception {
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+        helper.setTo(toEmail);
+        helper.setSubject(subject);
+        helper.setText(html, true);
+
+        mailSender.send(message);
+    }
+
+    private void sendWithBrevo(String toEmail, String subject, String html) throws Exception {
+        if (brevoApiKey == null || brevoApiKey.isBlank()) {
+            throw new IllegalStateException("BREVO_API_KEY chưa được cấu hình");
+        }
+        if (brevoSenderEmail == null || brevoSenderEmail.isBlank()) {
+            throw new IllegalStateException("BREVO_SENDER_EMAIL chưa được cấu hình");
+        }
+
+        Map<String, Object> payload = Map.of(
+                "sender", Map.of(
+                        "name", brevoSenderName,
+                        "email", brevoSenderEmail
+                ),
+                "to", List.of(Map.of("email", toEmail)),
+                "subject", subject,
+                "htmlContent", html
+        );
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+                .timeout(Duration.ofSeconds(20))
+                .header("accept", "application/json")
+                .header("api-key", brevoApiKey)
+                .header("content-type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException("Brevo trả HTTP " + response.statusCode() + ": " + response.body());
         }
     }
 

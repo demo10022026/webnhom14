@@ -34,15 +34,25 @@ spring:
     default-property-inclusion: non_null
 
   mail:
-    host: smtp.gmail.com
-    port: 587
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
     properties:
       mail.smtp.auth: true
-      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
+      mail.smtp.connectiontimeout: ${MAIL_SMTP_CONNECTION_TIMEOUT:10000}
+      mail.smtp.timeout: ${MAIL_SMTP_TIMEOUT:10000}
+      mail.smtp.writetimeout: ${MAIL_SMTP_WRITE_TIMEOUT:10000}
 
 app:
+  email:
+    provider: ${MAIL_PROVIDER:smtp}
+    brevo:
+      api-key: ${BREVO_API_KEY:}
+      sender-email: ${BREVO_SENDER_EMAIL:}
+      sender-name: ${BREVO_SENDER_NAME:ShopVN}
+
   jwt:
     secret: ${JWT_SECRET}
     expiration-ms: 900000
