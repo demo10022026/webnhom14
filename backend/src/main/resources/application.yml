@@ -33,22 +33,13 @@ spring:
     time-zone: Asia/Ho_Chi_Minh
     default-property-inclusion: non_null
 
-  mail:
-    host: ${MAIL_HOST:smtp.gmail.com}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
-    properties:
-      mail.smtp.auth: true
-      mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
-      mail.smtp.connectiontimeout: ${MAIL_SMTP_CONNECTION_TIMEOUT:10000}
-      mail.smtp.timeout: ${MAIL_SMTP_TIMEOUT:10000}
-      mail.smtp.writetimeout: ${MAIL_SMTP_WRITE_TIMEOUT:10000}
-
 app:
   email:
-    from-email: ${MAIL_FROM_EMAIL:${MAIL_USERNAME}}
+    from-email: ${MAIL_FROM_EMAIL:${MAIL_USERNAME:}}
     from-name: ${MAIL_FROM_NAME:ShopVN}
+    mailjet:
+      api-key: ${MAILJET_API_KEY:${MAIL_USERNAME:}}
+      secret-key: ${MAILJET_SECRET_KEY:${MAIL_PASSWORD:}}
 
   jwt:
     secret: ${JWT_SECRET}

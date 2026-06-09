@@ -2,48 +2,93 @@ package com.ecommerce.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import jakarta.mail.internet.InternetAddress;
-import jakarta.mail.internet.MimeMessage;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private final ObjectMapper objectMapper;
 
-    @Value("${app.email.from-email:${spring.mail.username}}")
+    @Value("${app.email.mailjet.api-key:}")
+    private String mailjetApiKey;
+
+    @Value("${app.email.mailjet.secret-key:}")
+    private String mailjetSecretKey;
+
+    @Value("${app.email.from-email:}")
     private String fromEmail;
 
     @Value("${app.email.from-name:ShopVN}")
     private String fromName;
 
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+
     @Async
     public void sendOtpEmail(String toEmail, String otp, String purpose) {
         try {
-            sendWithSmtp(toEmail, getSubject(purpose), buildHtml(otp, purpose));
+            sendWithMailjet(toEmail, getSubject(purpose), buildHtml(otp, purpose));
             log.info("Đã gửi OTP email đến: {}", toEmail);
         } catch (Exception e) {
             log.error("Lỗi gửi email đến {}: {}", toEmail, e.getMessage());
         }
     }
 
-    private void sendWithSmtp(String toEmail, String subject, String html) throws Exception {
-        MimeMessage message = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+    private void sendWithMailjet(String toEmail, String subject, String html) throws Exception {
+        if (mailjetApiKey == null || mailjetApiKey.isBlank()) {
+            throw new IllegalStateException("MAILJET_API_KEY hoặc MAIL_USERNAME chưa được cấu hình");
+        }
+        if (mailjetSecretKey == null || mailjetSecretKey.isBlank()) {
+            throw new IllegalStateException("MAILJET_SECRET_KEY hoặc MAIL_PASSWORD chưa được cấu hình");
+        }
+        if (fromEmail == null || fromEmail.isBlank()) {
+            throw new IllegalStateException("MAIL_FROM_EMAIL chưa được cấu hình");
+        }
 
-        helper.setFrom(new InternetAddress(fromEmail, fromName, "UTF-8"));
-        helper.setTo(toEmail);
-        helper.setSubject(subject);
-        helper.setText(html, true);
+        Map<String, Object> payload = Map.of(
+                "Messages", List.of(Map.of(
+                        "From", Map.of(
+                                "Email", fromEmail,
+                                "Name", fromName
+                        ),
+                        "To", List.of(Map.of("Email", toEmail)),
+                        "Subject", subject,
+                        "HTMLPart", html
+                ))
+        );
 
-        mailSender.send(message);
+        String credentials = mailjetApiKey + ":" + mailjetSecretKey;
+        String basicAuth = Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.mailjet.com/v3.1/send"))
+                .timeout(Duration.ofSeconds(20))
+                .header("accept", "application/json")
+                .header("authorization", "Basic " + basicAuth)
+                .header("content-type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException("Mailjet trả HTTP " + response.statusCode() + ": " + response.body());
+        }
     }
 
     private String getSubject(String purpose) {
