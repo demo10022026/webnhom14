@@ -38,6 +38,15 @@ public class EmailService {
     @Value("${app.email.brevo.sender-name:ShopVN}")
     private String brevoSenderName;
 
+    @Value("${app.email.resend.api-key:}")
+    private String resendApiKey;
+
+    @Value("${app.email.resend.from-email:}")
+    private String resendFromEmail;
+
+    @Value("${app.email.resend.from-name:ShopVN}")
+    private String resendFromName;
+
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
@@ -49,6 +58,8 @@ public class EmailService {
             String html = buildHtml(otp, purpose);
             if ("brevo".equalsIgnoreCase(emailProvider)) {
                 sendWithBrevo(toEmail, subject, html);
+            } else if ("resend".equalsIgnoreCase(emailProvider)) {
+                sendWithResend(toEmail, subject, html);
             } else {
                 sendWithSmtp(toEmail, subject, html);
             }
@@ -99,6 +110,36 @@ public class EmailService {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             throw new IllegalStateException("Brevo trả HTTP " + response.statusCode() + ": " + response.body());
+        }
+    }
+
+    private void sendWithResend(String toEmail, String subject, String html) throws Exception {
+        if (resendApiKey == null || resendApiKey.isBlank()) {
+            throw new IllegalStateException("RESEND_API_KEY chưa được cấu hình");
+        }
+        if (resendFromEmail == null || resendFromEmail.isBlank()) {
+            throw new IllegalStateException("RESEND_FROM_EMAIL chưa được cấu hình");
+        }
+
+        Map<String, Object> payload = Map.of(
+                "from", "%s <%s>".formatted(resendFromName, resendFromEmail),
+                "to", List.of(toEmail),
+                "subject", subject,
+                "html", html
+        );
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.resend.com/emails"))
+                .timeout(Duration.ofSeconds(20))
+                .header("accept", "application/json")
+                .header("authorization", "Bearer " + resendApiKey)
+                .header("content-type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException("Resend trả HTTP " + response.statusCode() + ": " + response.body());
         }
     }
 
