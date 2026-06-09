@@ -16,7 +16,7 @@ frontend/{}
 
 # Generated report/presentation artifacts
 .report_work/
-outputs/manual-20260609-shopvn/presentations/shopvn-defense/output/
+outputs/
 ShopVN_slide_thuyet_trinh_20_trang.pptx
 ShopVN_tom_tat_thuyet_trinh.txt
 
