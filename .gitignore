@@ -15,6 +15,7 @@ frontend/build/
 frontend/{}
 
 # Generated report/presentation artifacts
+.report_work/
 ShopVN_slide_thuyet_trinh_20_trang.pptx
 ShopVN_tom_tat_thuyet_trinh.txt
 
