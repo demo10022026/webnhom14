@@ -1,6 +1,7 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
 import type { PageResponse } from '@/types/product.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface ProductReview {
     reviewId: number
@@ -74,7 +75,7 @@ export const reviewApi = {
             }),
         })
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getProductReviewStats: async (
@@ -84,6 +85,6 @@ export const reviewApi = {
             `/products/${productId}/reviews/stats`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

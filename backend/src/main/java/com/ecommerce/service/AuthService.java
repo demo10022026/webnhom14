@@ -2,6 +2,7 @@ package com.ecommerce.service;
 
 import com.ecommerce.dto.request.*;
 import com.ecommerce.dto.response.AuthResponse;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface AuthService {
 
@@ -23,4 +24,6 @@ public interface AuthService {
     void resetPassword(ResetPasswordRequest request);
 
     void changePassword(String email, ChangePasswordRequest request);
+
+    AuthResponse.UserInfo updateAvatar(String email, MultipartFile avatar);
 }

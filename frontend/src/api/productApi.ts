@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 import type {
   HomeData,
   ProductSummary,
@@ -12,7 +13,7 @@ import type {
 export const homeApi = {
   getHomeData: async (): Promise<HomeData> => {
     const res = await axiosInstance.get<ApiResponse<HomeData>>('/home')
-    return res.data.data!
+    return unwrapApiResponse(res.data)
   },
 
   getFlashSale: async (limit = 12): Promise<FlashSaleProduct[]> => {
@@ -20,7 +21,7 @@ export const homeApi = {
         `/home/flash-sale?limit=${limit}`
     )
 
-    return res.data.data!
+    return unwrapApiResponse(res.data)
   },
 
   getNewProducts: async (limit = 12): Promise<ProductSummary[]> => {
@@ -28,7 +29,7 @@ export const homeApi = {
         `/home/new-products?limit=${limit}`
     )
 
-    return res.data.data!
+    return unwrapApiResponse(res.data)
   },
 
   getBestSellers: async (limit = 12): Promise<ProductSummary[]> => {
@@ -36,7 +37,7 @@ export const homeApi = {
         `/home/best-sellers?limit=${limit}`
     )
 
-    return res.data.data!
+    return unwrapApiResponse(res.data)
   },
 }
 
@@ -72,7 +73,7 @@ export const productApi = {
       params: cleanParams(params),
     })
 
-    return res.data.data!
+    return unwrapApiResponse(res.data)
   },
 
   getDetail: async (id: number): Promise<ProductDetail> => {
@@ -80,7 +81,7 @@ export const productApi = {
         `/products/${id}`
     )
 
-    return res.data.data!
+    return unwrapApiResponse(res.data)
   },
 
   getCategories: async (): Promise<CategoryDto[]> => {
@@ -88,6 +89,6 @@ export const productApi = {
         '/products/categories'
     )
 
-    return res.data.data!
+    return unwrapApiResponse(res.data)
   },
 }

@@ -1,5 +1,6 @@
 import axiosInstance from '../axiosInstance.ts'
 import type { ApiResponse } from '@/types/auth.types.ts'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export type SellerVerifyStatus =
     | 'pending'
@@ -94,7 +95,7 @@ export const adminSellerApi = {
             '/admin/sellers/stats'
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     list: async (
@@ -111,7 +112,7 @@ export const adminSellerApi = {
             }),
         })
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getActiveSellers: async (
@@ -127,7 +128,7 @@ export const adminSellerApi = {
             }),
         })
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getDetail: async (id: number): Promise<AdminSellerItem> => {
@@ -135,7 +136,7 @@ export const adminSellerApi = {
             `/admin/sellers/${id}`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     review: async (
@@ -148,7 +149,7 @@ export const adminSellerApi = {
             { approved, rejectionReason }
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     suspend: async (
@@ -160,7 +161,7 @@ export const adminSellerApi = {
             { reason }
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     reactivate: async (id: number): Promise<AdminSellerItem> => {
@@ -168,7 +169,7 @@ export const adminSellerApi = {
             `/admin/sellers/${id}/reactivate`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     // Legacy cho component cũ nếu còn dùng.
@@ -185,7 +186,7 @@ export const adminSellerApi = {
             `/admin/sellers/${sellerId}/approve`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     rejectSeller: async (
@@ -197,6 +198,6 @@ export const adminSellerApi = {
             { reason }
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

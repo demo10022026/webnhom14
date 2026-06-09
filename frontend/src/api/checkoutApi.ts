@@ -1,12 +1,15 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface CheckoutRequest {
     cartItemIds: number[]
     addressId?: number | null
     voucherId?: number | null
-    paymentMethod?: 'cod'
+    paymentMethod?: CheckoutPaymentMethod
 }
+
+export type CheckoutPaymentMethod = 'cod' | 'sepay'
 
 export interface CheckoutSummaryItem {
     cartItemId: number
@@ -62,6 +65,22 @@ export interface CheckoutPlaceOrderResponse {
     orderCode: string
     totalAmount: number
     orderStatus: string
+    payment?: CheckoutPaymentInfo | null
+}
+
+export interface CheckoutPaymentInfo {
+    paymentId: number
+    paymentMethod: CheckoutPaymentMethod
+    paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded'
+    transactionCode?: string | null
+    qrCodeUrl?: string | null
+}
+
+export interface PaymentStatusResponse extends CheckoutPaymentInfo {
+    orderId: number
+    orderCode: string
+    totalAmount: number
+    paidAt?: string | null
 }
 
 export const checkoutApi = {
@@ -73,7 +92,7 @@ export const checkoutApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     placeOrder: async (
@@ -83,6 +102,17 @@ export const checkoutApi = {
             ApiResponse<CheckoutPlaceOrderResponse>
         >('/checkout/place-order', payload)
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
+
+    getPaymentStatus: async (
+        paymentId: number
+    ): Promise<PaymentStatusResponse> => {
+        const res = await axiosInstance.get<ApiResponse<PaymentStatusResponse>>(
+            `/payments/${paymentId}/status`
+        )
+
+        return unwrapApiResponse(res.data)
+    },
+
 }

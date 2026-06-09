@@ -1,5 +1,6 @@
 import axiosInstance from '../axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface PageResponse<T> {
     content: T[]
@@ -135,7 +136,7 @@ export const adminOrderApi = {
             }
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getStats: async (): Promise<AdminOrderStats> => {
@@ -143,7 +144,7 @@ export const adminOrderApi = {
             '/admin/orders/stats'
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getOrderDetail: async (orderId: number): Promise<AdminOrder> => {
@@ -151,7 +152,7 @@ export const adminOrderApi = {
             `/admin/orders/${orderId}`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateOrderStatus: async (
@@ -163,6 +164,6 @@ export const adminOrderApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

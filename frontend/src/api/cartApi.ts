@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 import type {
     AddToCartRequest,
     CartResponse,
@@ -9,7 +10,7 @@ import type {
 export const cartApi = {
     getCart: async (): Promise<CartResponse> => {
         const res = await axiosInstance.get<ApiResponse<CartResponse>>('/cart')
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     addItem: async (body: AddToCartRequest): Promise<CartResponse> => {
@@ -17,7 +18,7 @@ export const cartApi = {
             '/cart/items',
             body
         )
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateItem: async (
@@ -28,20 +29,20 @@ export const cartApi = {
             `/cart/items/${cartItemId}`,
             body
         )
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     removeItem: async (cartItemId: number): Promise<CartResponse> => {
         const res = await axiosInstance.delete<ApiResponse<CartResponse>>(
             `/cart/items/${cartItemId}`
         )
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     clearCart: async (): Promise<CartResponse> => {
         const res = await axiosInstance.delete<ApiResponse<CartResponse>>(
             '/cart/clear'
         )
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

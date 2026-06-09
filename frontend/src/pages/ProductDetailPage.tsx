@@ -93,10 +93,9 @@ export default function ProductDetailPage() {
       setItemCount(data.totalQuantity || 0)
       queryClient.setQueryData(['cart'], data)
 
-      const cartData = data as any
-      const cartItem = cartData.shops
-          ?.flatMap((shop: any) => shop.items ?? [])
-          ?.find((item: any) => item.variantId === variables.variantId)
+      const cartItem = data.shops
+          .flatMap((shop) => shop.items)
+          .find((item) => item.variantId === variables.variantId)
 
       if (!cartItem?.cartItemId) {
         toast.error('Không tìm thấy sản phẩm trong giỏ hàng')

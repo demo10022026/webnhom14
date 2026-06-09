@@ -1,5 +1,6 @@
 import axiosInstance from '@/api/axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface PageResponse<T> {
     content: T[]
@@ -117,7 +118,7 @@ export const adminVoucherApi = {
             }),
         })
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getStats: async (): Promise<AdminVoucherStats> => {
@@ -125,7 +126,7 @@ export const adminVoucherApi = {
             '/admin/vouchers/stats'
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getVoucherDetail: async (voucherId: number): Promise<AdminVoucher> => {
@@ -133,7 +134,7 @@ export const adminVoucherApi = {
             `/admin/vouchers/${voucherId}`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getShopLookup: async (
@@ -143,7 +144,7 @@ export const adminVoucherApi = {
             ApiResponse<AdminVoucherShopLookup>
         >(`/admin/vouchers/shops/${shopId}`)
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     createVoucher: async (
@@ -154,7 +155,7 @@ export const adminVoucherApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateVoucher: async (
@@ -166,7 +167,7 @@ export const adminVoucherApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateVoucherStatus: async (
@@ -180,6 +181,6 @@ export const adminVoucherApi = {
             }
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

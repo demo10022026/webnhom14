@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface PageResponse<T> {
     content: T[]
@@ -77,7 +78,7 @@ export const sellerVoucherApi = {
             params: cleanParams(params),
         })
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     createVoucher: async (
@@ -88,7 +89,7 @@ export const sellerVoucherApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateVoucher: async (
@@ -100,7 +101,7 @@ export const sellerVoucherApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     expireVoucher: async (
@@ -110,6 +111,6 @@ export const sellerVoucherApi = {
             `/seller/vouchers/${voucherId}/expire`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

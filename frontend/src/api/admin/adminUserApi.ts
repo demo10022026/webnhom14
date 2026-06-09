@@ -1,5 +1,6 @@
 import axiosInstance from '@/api/axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface PageResponse<T> {
     content: T[]
@@ -125,7 +126,7 @@ export const adminUserApi = {
             }
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getStats: async (): Promise<AdminUserStats> => {
@@ -133,7 +134,7 @@ export const adminUserApi = {
             '/admin/users/stats'
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getUserDetail: async (userId: number): Promise<AdminUser> => {
@@ -141,7 +142,7 @@ export const adminUserApi = {
             `/admin/users/${userId}`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateUser: async (
@@ -153,7 +154,7 @@ export const adminUserApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateUserProfile: async (
@@ -165,7 +166,7 @@ export const adminUserApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateUserRole: async (
@@ -177,7 +178,7 @@ export const adminUserApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateUserStatus: async (
@@ -189,7 +190,7 @@ export const adminUserApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     resetUserPassword: async (
@@ -201,6 +202,6 @@ export const adminUserApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

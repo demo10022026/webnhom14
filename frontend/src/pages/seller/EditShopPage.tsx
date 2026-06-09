@@ -26,6 +26,9 @@ interface ShopFormState {
 
 interface BankFormState {
     bankName: string
+    bankCode: string
+    bankBin: string
+    bankLogo: string
     accountHolder: string
     accountNumber: string
 }
@@ -40,6 +43,9 @@ const EMPTY_SHOP_FORM: ShopFormState = {
 
 const EMPTY_BANK_FORM: BankFormState = {
     bankName: '',
+    bankCode: '',
+    bankBin: '',
+    bankLogo: '',
     accountHolder: '',
     accountNumber: '',
 }
@@ -86,6 +92,9 @@ export default function EditShopPage() {
 
         setBankForm({
             bankName: profile.bankAccount?.bankName ?? '',
+            bankCode: profile.bankAccount?.bankCode ?? '',
+            bankBin: profile.bankAccount?.bankBin ?? '',
+            bankLogo: profile.bankAccount?.bankLogo ?? '',
             accountHolder: profile.bankAccount?.accountHolder ?? '',
             accountNumber: profile.bankAccount?.accountNumber ?? '',
         })
@@ -118,13 +127,13 @@ export default function EditShopPage() {
     const updateBankMutation = useMutation({
         mutationFn: sellerShopProfileApi.upsertBankAccount,
         onSuccess: () => {
-            toast.success('Đã cập nhật thông tin thanh toán')
+            toast.success('Đã cập nhật tài khoản đối soát')
             queryClient.invalidateQueries({ queryKey: ['sellerShopProfile'] })
         },
         onError: (err: any) => {
             toast.error(
                 err?.response?.data?.message ||
-                    'Không thể cập nhật thông tin thanh toán'
+                    'Không thể cập nhật tài khoản đối soát'
             )
         },
     })
@@ -154,6 +163,11 @@ export default function EditShopPage() {
             return
         }
 
+        if (!bankForm.bankBin.trim()) {
+            toast.error('Vui lòng chọn ngân hàng từ danh sách')
+            return
+        }
+
         if (!bankForm.accountHolder.trim()) {
             toast.error('Nhập tên chủ tài khoản')
             return
@@ -166,6 +180,9 @@ export default function EditShopPage() {
 
         updateBankMutation.mutate({
             bankName: bankForm.bankName.trim(),
+            bankCode: bankForm.bankCode.trim(),
+            bankBin: bankForm.bankBin.trim(),
+            bankLogo: bankForm.bankLogo.trim() || undefined,
             accountHolder: bankForm.accountHolder.trim(),
             accountNumber: bankForm.accountNumber.trim(),
         })
@@ -198,7 +215,7 @@ export default function EditShopPage() {
                         Chỉnh sửa shop
                     </h1>
                     <p className="mt-1 text-sm text-gray-500">
-                        Cập nhật thông tin hiển thị công khai và thông tin thanh toán.
+                        Cập nhật thông tin hiển thị công khai và tài khoản nhận đối soát.
                     </p>
                 </div>
 
@@ -373,10 +390,10 @@ export default function EditShopPage() {
                         <div className="border-b border-gray-100 p-5">
                             <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
                                 <CreditCard size={19} />
-                                Thông tin thanh toán
+                                Tài khoản nhận đối soát
                             </h2>
                             <p className="mt-1 text-sm text-gray-500">
-                                Dùng để nhận tiền thanh toán và đối soát doanh thu.
+                                Dùng để admin đối soát doanh thu sau khi đơn hàng hoàn tất.
                             </p>
                         </div>
 
@@ -387,12 +404,18 @@ export default function EditShopPage() {
                                 </label>
                                 <select
                                     value={bankForm.bankName}
-                                    onChange={(e) =>
+                                    onChange={(e) => {
+                                        const selectedBank = banks.find(
+                                            (bank) => bank.name === e.target.value
+                                        )
                                         setBankForm((prev) => ({
                                             ...prev,
-                                            bankName: e.target.value,
+                                            bankName: selectedBank?.name ?? e.target.value,
+                                            bankCode: selectedBank?.code ?? '',
+                                            bankBin: selectedBank?.bin ?? '',
+                                            bankLogo: selectedBank?.logo ?? '',
                                         }))
-                                    }
+                                    }}
                                     className="w-full rounded-xl border px-4 py-2.5 text-sm outline-none focus:border-orange-500"
                                 >
                                     <option value="">
@@ -472,7 +495,7 @@ export default function EditShopPage() {
                                 ) : (
                                     <Save size={16} />
                                 )}
-                                Lưu thông tin thanh toán
+                                Lưu tài khoản đối soát
                             </button>
                         </div>
                     </form>
@@ -525,7 +548,7 @@ export default function EditShopPage() {
 
                     <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
                         <h2 className="font-semibold text-gray-900">
-                            Thanh toán hiện tại
+                            Tài khoản đối soát hiện tại
                         </h2>
 
                         {profile.bankAccount ? (
@@ -545,7 +568,7 @@ export default function EditShopPage() {
                             </div>
                         ) : (
                             <p className="mt-4 text-sm text-gray-400">
-                                Shop chưa có thông tin thanh toán.
+                                Shop chưa có tài khoản đối soát.
                             </p>
                         )}
                     </div>

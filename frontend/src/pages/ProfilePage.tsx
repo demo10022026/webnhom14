@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { type ChangeEvent, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -217,10 +217,47 @@ export default function ProfilePage() {
   const [showNew, setShowNew] = useState(false)
   const [pwData, setPwData] = useState<PwForm | null>(null)
   const [changePwStep, setChangePwStep] = useState<'form' | 'otp'>('form')
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const pwForm = useForm<PwForm>({
     resolver: zodResolver(pwSchema),
   })
+
+  const avatarMutation = useMutation({
+    mutationFn: authApi.updateAvatar,
+    onSuccess: (updatedUser) => {
+      updateUser(updatedUser)
+      toast.success('Cập nhật avatar thành công!')
+    },
+    onError: (e: any) => {
+      toast.error(e?.response?.data?.message || 'Không thể cập nhật avatar')
+    },
+    onSettled: () => {
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = ''
+      }
+    },
+  })
+
+  const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Avatar chỉ hỗ trợ JPG, PNG hoặc WEBP')
+      event.target.value = ''
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Avatar tối đa 5MB')
+      event.target.value = ''
+      return
+    }
+
+    avatarMutation.mutate(file)
+  }
 
   if (!user) return null
 
@@ -333,10 +370,25 @@ export default function ProfilePage() {
 
               <button
                   type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarMutation.isPending}
+                  aria-label="Cập nhật avatar"
                   className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full bg-orange-500 shadow transition-colors hover:bg-orange-600"
               >
-                <Camera className="h-3.5 w-3.5 text-white" />
+                {avatarMutation.isPending ? (
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                    <Camera className="h-3.5 w-3.5 text-white" />
+                )}
               </button>
+
+              <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+              />
             </div>
 
             <div>

@@ -1,6 +1,7 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
 import type { ShopInfo } from '@/api/sellerShopApi'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface SellerDashboardStats {
     totalProducts: number
@@ -64,6 +65,6 @@ export const sellerDashboardApi = {
             '/seller/dashboard'
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

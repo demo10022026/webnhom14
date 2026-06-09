@@ -43,7 +43,9 @@ public class Payment {
 
     public enum PaymentMethod {
         cod,
+        sepay,
         bank_transfer,
+        vnpay,
         credit_card,
         e_wallet
     }

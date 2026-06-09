@@ -1,15 +1,16 @@
 import axiosInstance from './axiosInstance'
-import type { ApiResponse, AuthResponse, LoginRequest, RegisterRequest } from '@/types/auth.types'
+import type { ApiResponse, AuthResponse, LoginRequest, RegisterRequest, UserInfo } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export const authApi = {
   register: async (data: RegisterRequest): Promise<AuthResponse> => {
     const res = await axiosInstance.post<ApiResponse<AuthResponse>>('/auth/register', data)
-    return res.data.data!
+    return unwrapApiResponse(res.data)
   },
 
   login: async (data: LoginRequest): Promise<AuthResponse> => {
     const res = await axiosInstance.post<ApiResponse<AuthResponse>>('/auth/login', data)
-    return res.data.data!
+    return unwrapApiResponse(res.data)
   },
 
   logout: async (refreshToken: string): Promise<void> => {
@@ -35,5 +36,18 @@ export const authApi = {
 
   changePassword: async (currentPassword: string, newPassword: string, otp: string) => {
     await axiosInstance.post('/auth/change-password', { currentPassword, newPassword, otp })
+  },
+
+  updateAvatar: async (avatar: File): Promise<UserInfo> => {
+    const formData = new FormData()
+    formData.append('avatar', avatar)
+
+    const res = await axiosInstance.patch<ApiResponse<UserInfo>>(
+      '/auth/me/avatar',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
+
+    return unwrapApiResponse(res.data)
   },
 }

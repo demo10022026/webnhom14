@@ -12,4 +12,15 @@ public class CheckoutPlaceOrderResponse {
     private String orderCode;
     private BigDecimal totalAmount;
     private String orderStatus;
+    private PaymentInfo payment;
+
+    @Getter
+    @Builder
+    public static class PaymentInfo {
+        private Integer paymentId;
+        private String paymentMethod;
+        private String paymentStatus;
+        private String transactionCode;
+        private String qrCodeUrl;
+    }
 }

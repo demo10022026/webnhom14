@@ -16,6 +16,7 @@ import {
     Wallet,
 } from 'lucide-react'
 import { sellerDashboardApi } from '@/api/sellerDashboardApi'
+import { getApiErrorCode, getApiErrorStatus } from '@/api/httpError'
 
 function formatDate(value?: string | null) {
     if (!value) return '-'
@@ -170,8 +171,8 @@ export default function SellerDashboardPage() {
         staleTime: 0,
     })
 
-    const status = (error as any)?.response?.status
-    const code = (error as any)?.response?.data?.errorCode
+    const status = getApiErrorStatus(error)
+    const code = getApiErrorCode(error)
 
     const shop = dashboard?.shop
     const stats = dashboard?.stats

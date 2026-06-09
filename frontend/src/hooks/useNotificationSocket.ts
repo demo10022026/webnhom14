@@ -3,6 +3,7 @@ import { Client, type IMessage } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { useAuthStore } from '@/store/authStore'
 import type { NotificationItem } from '@/api/notificationApi'
+import { WS_BASE_URL } from '@/config/env'
 
 export function useNotificationSocket(
     onNotification: (notification: NotificationItem) => void
@@ -18,7 +19,7 @@ export function useNotificationSocket(
         if (!isAuthenticated || !accessToken) return
 
         const client = new Client({
-            webSocketFactory: () => new SockJS('/api/ws'),
+            webSocketFactory: () => new SockJS(WS_BASE_URL),
             connectHeaders: {
                 Authorization: `Bearer ${accessToken}`,
             },

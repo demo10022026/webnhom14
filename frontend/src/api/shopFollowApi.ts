@@ -1,5 +1,6 @@
 import axiosInstance from '@/api/axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface PageResponse<T> {
     content: T[]
@@ -36,7 +37,7 @@ export const shopFollowApi = {
             `/shops/${shopId}/follow-status`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     followShop: async (shopId: number): Promise<ShopFollowStatus> => {
@@ -44,7 +45,7 @@ export const shopFollowApi = {
             `/shops/${shopId}/follow`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     unfollowShop: async (shopId: number): Promise<ShopFollowStatus> => {
@@ -52,7 +53,7 @@ export const shopFollowApi = {
             `/shops/${shopId}/follow`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getMyFollowingShops: async (params: {
@@ -68,6 +69,6 @@ export const shopFollowApi = {
             },
         })
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

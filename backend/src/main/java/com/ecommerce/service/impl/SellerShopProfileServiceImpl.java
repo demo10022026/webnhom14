@@ -117,6 +117,9 @@ public class SellerShopProfileServiceImpl implements SellerShopProfileService {
                         .build());
 
         bank.setBankName(normalizeRequired(request.getBankName()));
+        bank.setBankCode(normalizeRequired(request.getBankCode()));
+        bank.setBankBin(normalizeRequired(request.getBankBin()));
+        bank.setBankLogo(defaultText(request.getBankLogo(), ""));
         bank.setAccountHolder(normalizeRequired(request.getAccountHolder()));
         bank.setAccountNumber(normalizeRequired(request.getAccountNumber()));
         bank.setIsPrimary(true);
@@ -187,6 +190,9 @@ public class SellerShopProfileServiceImpl implements SellerShopProfileService {
         return SellerShopProfileResponse.BankAccount.builder()
                 .bankAccountId(bank.getBankAccountId())
                 .bankName(bank.getBankName())
+                .bankCode(bank.getBankCode())
+                .bankBin(bank.getBankBin())
+                .bankLogo(bank.getBankLogo())
                 .accountHolder(bank.getAccountHolder())
                 .accountNumber(bank.getAccountNumber())
                 .maskedAccountNumber(maskAccountNumber(bank.getAccountNumber()))
@@ -247,5 +253,10 @@ public class SellerShopProfileServiceImpl implements SellerShopProfileService {
         }
 
         return normalized;
+    }
+
+    private String defaultText(String value, String fallback) {
+        String normalized = normalizeText(value);
+        return normalized == null ? fallback : normalized;
     }
 }

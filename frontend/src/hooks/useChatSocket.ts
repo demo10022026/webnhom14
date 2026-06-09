@@ -3,6 +3,7 @@ import { Client, type IMessage } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { useAuthStore } from '@/store/authStore'
 import type { ChatMessage } from '@/api/chatApi'
+import { WS_BASE_URL } from '@/config/env'
 
 export function useChatSocket(onMessage: (message: ChatMessage) => void) {
     const { accessToken, isAuthenticated } = useAuthStore()
@@ -16,7 +17,7 @@ export function useChatSocket(onMessage: (message: ChatMessage) => void) {
         if (!isAuthenticated || !accessToken) return
 
         const client = new Client({
-            webSocketFactory: () => new SockJS('/api/ws'),
+            webSocketFactory: () => new SockJS(WS_BASE_URL),
             connectHeaders: {
                 Authorization: `Bearer ${accessToken}`,
             },

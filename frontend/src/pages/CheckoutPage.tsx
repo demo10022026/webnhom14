@@ -5,18 +5,28 @@ import toast from 'react-hot-toast'
 import {
     CheckCircle2,
     ChevronRight,
+    Copy,
     CreditCard,
     Loader2,
     MapPin,
     Package,
+    QrCode,
+    RefreshCw,
     ShieldCheck,
     Store,
     TicketPercent,
     Truck,
 } from 'lucide-react'
 import { addressApi, type UserAddress } from '@/api/addressApi'
-import { checkoutApi, type CheckoutSummaryResponse } from '@/api/checkoutApi'
+import {
+    checkoutApi,
+    type CheckoutPaymentMethod,
+    type CheckoutPaymentInfo,
+    type CheckoutSummaryResponse,
+} from '@/api/checkoutApi'
 import { voucherApi, type Voucher } from '@/api/voucherApi'
+import { getApiErrorMessage } from '@/api/httpError'
+import AddressModal from '@/components/address/AddressModal'
 import { useCartStore } from '@/store/cartStore'
 import { formatPrice } from '@/utils/mask'
 
@@ -143,6 +153,15 @@ export default function CheckoutPage() {
 
     const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null)
     const [selectedVoucherId, setSelectedVoucherId] = useState<number | null>(null)
+    const [selectedPaymentMethod, setSelectedPaymentMethod] =
+        useState<CheckoutPaymentMethod>('cod')
+    const [pendingSePayPayment, setPendingSePayPayment] =
+        useState<(CheckoutPaymentInfo & {
+            orderCode: string
+            totalAmount: number
+        }) | null>(null)
+    const [paidRedirectPaymentId, setPaidRedirectPaymentId] = useState<number | null>(null)
+    const [addressModalOpen, setAddressModalOpen] = useState(false)
 
     const {
         data: addresses = [],
@@ -169,12 +188,12 @@ export default function CheckoutPage() {
         isError: isSummaryError,
         error: summaryError,
     } = useQuery({
-        queryKey: ['checkoutSummary', cartItemIds, selectedVoucherId],
+        queryKey: ['checkoutSummary', cartItemIds, selectedVoucherId, selectedPaymentMethod],
         queryFn: () =>
             checkoutApi.getSummary({
                 cartItemIds,
                 voucherId: selectedVoucherId,
-                paymentMethod: 'cod',
+                paymentMethod: selectedPaymentMethod,
             }),
         enabled: cartItemIds.length > 0,
         retry: false,
@@ -195,14 +214,46 @@ export default function CheckoutPage() {
         return addresses.find((address) => address.addressId === selectedAddressId)
     }, [addresses, selectedAddressId])
 
+    const handleAddressSaved = (address: UserAddress) => {
+        queryClient.setQueryData<UserAddress[]>(['addresses'], (current = []) => {
+            const exists = current.some(
+                (item) => item.addressId === address.addressId
+            )
+
+            if (exists) {
+                return current.map((item) =>
+                    item.addressId === address.addressId ? address : item
+                )
+            }
+
+            return [address, ...current]
+        })
+        setSelectedAddressId(address.addressId)
+    }
+
     const placeOrderMutation = useMutation({
         mutationFn: checkoutApi.placeOrder,
         onSuccess: (data) => {
+            if (data.payment?.paymentMethod === 'sepay') {
+                setPendingSePayPayment({
+                    ...data.payment,
+                    orderCode: data.orderCode,
+                    totalAmount: data.totalAmount,
+                })
+                toast.success(`Đã tạo đơn ${data.orderCode}. Vui lòng quét QR để thanh toán.`)
+                queryClient.invalidateQueries({ queryKey: ['cart'] })
+                queryClient.invalidateQueries({ queryKey: ['myOrders'] })
+                queryClient.invalidateQueries({ queryKey: ['myVouchers'] })
+                setItemCount(0)
+                return
+            }
+
             toast.success(`Đặt hàng thành công: ${data.orderCode}`)
             queryClient.invalidateQueries({ queryKey: ['cart'] })
             queryClient.invalidateQueries({ queryKey: ['myOrders'] })
             queryClient.invalidateQueries({ queryKey: ['myVouchers'] })
             setItemCount(0)
+
             navigate('/orders', {
                 replace: true,
                 state: {
@@ -210,12 +261,49 @@ export default function CheckoutPage() {
                 },
             })
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
             toast.error(
-                err?.response?.data?.message || 'Không thể đặt hàng'
+                getApiErrorMessage(err, 'Không thể đặt hàng')
             )
         },
     })
+
+    const paymentStatusQuery = useQuery({
+        queryKey: ['paymentStatus', pendingSePayPayment?.paymentId],
+        queryFn: () => checkoutApi.getPaymentStatus(pendingSePayPayment!.paymentId),
+        enabled: Boolean(pendingSePayPayment?.paymentId),
+        refetchInterval: (query) =>
+            query.state.data?.paymentStatus === 'paid' ? false : 3000,
+        retry: 1,
+    })
+
+    useEffect(() => {
+        const status = paymentStatusQuery.data
+
+        if (
+            !status ||
+            status.paymentStatus !== 'paid' ||
+            paidRedirectPaymentId === status.paymentId
+        ) {
+            return
+        }
+
+        setPaidRedirectPaymentId(status.paymentId)
+        toast.success(`Thanh toán thành công: ${status.orderCode}`)
+        queryClient.invalidateQueries({ queryKey: ['myOrders'] })
+        queryClient.invalidateQueries({ queryKey: ['cart'] })
+
+        const timer = window.setTimeout(() => {
+            navigate('/orders', {
+                replace: true,
+                state: {
+                    createdOrderCode: status.orderCode,
+                },
+            })
+        }, 900)
+
+        return () => window.clearTimeout(timer)
+    }, [navigate, paidRedirectPaymentId, paymentStatusQuery.data, queryClient])
 
     const handlePlaceOrder = () => {
         if (cartItemIds.length === 0) {
@@ -232,8 +320,15 @@ export default function CheckoutPage() {
             cartItemIds,
             addressId: selectedAddressId,
             voucherId: selectedVoucherId,
-            paymentMethod: 'cod',
+            paymentMethod: selectedPaymentMethod,
         })
+    }
+
+    const handleCopyTransferCode = async () => {
+        if (!pendingSePayPayment?.transactionCode) return
+
+        await navigator.clipboard.writeText(pendingSePayPayment.transactionCode)
+        toast.success('Đã copy nội dung chuyển khoản')
     }
 
     if (cartItemIds.length === 0) {
@@ -311,12 +406,13 @@ export default function CheckoutPage() {
                                     <p className="text-sm text-gray-500">
                                         Bạn chưa có địa chỉ nhận hàng.
                                     </p>
-                                    <Link
-                                        to="/addresses"
+                                    <button
+                                        type="button"
+                                        onClick={() => setAddressModalOpen(true)}
                                         className="mt-3 inline-flex rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
                                     >
                                         Thêm địa chỉ
-                                    </Link>
+                                    </button>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -384,8 +480,10 @@ export default function CheckoutPage() {
                                 </div>
                             ) : isSummaryError ? (
                                 <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
-                                    {(summaryError as any)?.response?.data?.message ||
-                                        'Không thể tải thông tin thanh toán.'}
+                                    {getApiErrorMessage(
+                                        summaryError,
+                                        'Không thể tải thông tin thanh toán.'
+                                    )}
                                 </div>
                             ) : (
                                 <div className="space-y-4">
@@ -569,23 +667,60 @@ export default function CheckoutPage() {
                                 </h2>
                             </div>
 
-                            <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        type="radio"
-                                        checked
-                                        readOnly
-                                        className="h-4 w-4 accent-orange-500"
-                                    />
-                                    <div>
-                                        <p className="text-sm font-semibold text-gray-900">
-                                            Thanh toán khi nhận hàng — COD
-                                        </p>
-                                        <p className="mt-1 text-xs text-gray-500">
-                                            Chuyển khoản/VietQR có thể tích hợp sau khi luồng đặt hàng ổn định.
-                                        </p>
+                            <div className="space-y-3">
+                                <label
+                                    className={[
+                                        'block cursor-pointer rounded-2xl border p-4 transition-colors',
+                                        selectedPaymentMethod === 'cod'
+                                            ? 'border-orange-300 bg-orange-50'
+                                            : 'border-gray-100 hover:border-orange-200',
+                                    ].join(' ')}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="radio"
+                                            name="paymentMethod"
+                                            checked={selectedPaymentMethod === 'cod'}
+                                            onChange={() => setSelectedPaymentMethod('cod')}
+                                            className="h-4 w-4 accent-orange-500"
+                                        />
+                                        <div>
+                                            <p className="text-sm font-semibold text-gray-900">
+                                                Thanh toán khi nhận hàng — COD
+                                            </p>
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Thanh toán bằng tiền mặt khi đơn được giao.
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
+                                </label>
+
+                                <label
+                                    className={[
+                                        'block cursor-pointer rounded-2xl border p-4 transition-colors',
+                                        selectedPaymentMethod === 'sepay'
+                                            ? 'border-orange-300 bg-orange-50'
+                                            : 'border-gray-100 hover:border-orange-200',
+                                    ].join(' ')}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="radio"
+                                            name="paymentMethod"
+                                            checked={selectedPaymentMethod === 'sepay'}
+                                            onChange={() => setSelectedPaymentMethod('sepay')}
+                                            className="h-4 w-4 accent-orange-500"
+                                        />
+                                        <div>
+                                            <p className="text-sm font-semibold text-gray-900">
+                                                Chuyển khoản VietQR qua SePay
+                                            </p>
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Quét QR ngân hàng, hệ thống tự xác nhận khi nhận webhook SePay.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </label>
                             </div>
                         </section>
                     </div>
@@ -657,9 +792,77 @@ export default function CheckoutPage() {
                             </div>
                         </div>
 
+                        {pendingSePayPayment && (
+                            <div className="mt-5 rounded-2xl border border-orange-100 bg-orange-50 p-4">
+                                <div className="mb-3 flex items-center gap-2">
+                                    <QrCode className="h-5 w-5 text-orange-600" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-900">
+                                            Thanh toán SePay
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            Đơn {pendingSePayPayment.orderCode}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {pendingSePayPayment.qrCodeUrl ? (
+                                    <img
+                                        src={pendingSePayPayment.qrCodeUrl}
+                                        alt="QR thanh toán SePay"
+                                        className="mx-auto h-56 w-56 rounded-xl border border-white bg-white object-contain p-2"
+                                    />
+                                ) : (
+                                    <div className="rounded-xl border border-dashed border-orange-200 bg-white p-4 text-center text-sm text-orange-700">
+                                        Chưa có QR. Kiểm tra cấu hình tài khoản SePay trong backend.
+                                    </div>
+                                )}
+
+                                <div className="mt-3 space-y-2 text-xs text-gray-600">
+                                    <div className="flex justify-between gap-3">
+                                        <span>Số tiền</span>
+                                        <span className="font-semibold text-gray-900">
+                                            {formatPrice(pendingSePayPayment.totalAmount)}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span>Nội dung</span>
+                                        <button
+                                            type="button"
+                                            onClick={handleCopyTransferCode}
+                                            className="inline-flex max-w-[190px] items-center gap-1 rounded-lg bg-white px-2 py-1 font-mono font-semibold text-orange-700 hover:bg-orange-100"
+                                        >
+                                            <span className="truncate">
+                                                {pendingSePayPayment.transactionCode}
+                                            </span>
+                                            <Copy className="h-3.5 w-3.5 shrink-0" />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span>Trạng thái</span>
+                                        <span className="inline-flex items-center gap-1 font-semibold text-orange-700">
+                                            {paymentStatusQuery.data?.paymentStatus === 'paid' ? (
+                                                <>
+                                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                                    Đã thanh toán
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                                    Đang chờ
+                                                </>
+                                            )}
+                                        </span>
+                                    </div>
+                                </div>
+
+                            </div>
+                        )}
+
                         <button
                             type="button"
                             disabled={
+                                Boolean(pendingSePayPayment) ||
                                 placeOrderMutation.isPending ||
                                 isLoadingSummary ||
                                 isSummaryError ||
@@ -673,6 +876,11 @@ export default function CheckoutPage() {
                                 <>
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                     Đang đặt hàng...
+                                </>
+                            ) : selectedPaymentMethod === 'sepay' ? (
+                                <>
+                                    <QrCode className="h-4 w-4" />
+                                    Tạo QR thanh toán
                                 </>
                             ) : (
                                 <>
@@ -688,6 +896,13 @@ export default function CheckoutPage() {
                     </aside>
                 </div>
             </div>
+
+            <AddressModal
+                open={addressModalOpen}
+                editingAddress={null}
+                onClose={() => setAddressModalOpen(false)}
+                onSaved={handleAddressSaved}
+            />
         </div>
     )
 }

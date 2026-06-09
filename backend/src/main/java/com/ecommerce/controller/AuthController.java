@@ -10,10 +10,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -103,8 +105,30 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody ChangePasswordRequest request) {
-        authService.changePassword(userDetails.getUsername(), request);
+        authService.changePassword(requireEmail(userDetails), request);
         return ResponseEntity.ok(ApiResponse.success(
                 "Đổi mật khẩu thành công. Vui lòng đăng nhập lại.", null));
+    }
+
+    @PatchMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(summary = "Cập nhật avatar tài khoản đang đăng nhập")
+    public ResponseEntity<ApiResponse<AuthResponse.UserInfo>> updateAvatar(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam("avatar") MultipartFile avatar) {
+        AuthResponse.UserInfo user = authService.updateAvatar(requireEmail(userDetails), avatar);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật avatar thành công", user));
+    }
+
+    private String requireEmail(UserDetails userDetails) {
+        if (userDetails == null) {
+            throw new com.ecommerce.exception.AppException(
+                    "Phiên đăng nhập đã hết hạn",
+                    HttpStatus.UNAUTHORIZED,
+                    "UNAUTHORIZED"
+            );
+        }
+
+        return userDetails.getUsername();
     }
 }

@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export type AddressType = 'home' | 'office' | 'other'
 
@@ -60,7 +61,7 @@ export const addressApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateAddress: async (
@@ -72,7 +73,7 @@ export const addressApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     deleteAddress: async (addressId: number): Promise<void> => {
@@ -84,6 +85,6 @@ export const addressApi = {
             `/addresses/${addressId}/default`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

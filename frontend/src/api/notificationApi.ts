@@ -1,5 +1,6 @@
 import axiosInstance from '@/api/axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface PageResponse<T> {
     content: T[]
@@ -42,7 +43,7 @@ export const notificationApi = {
             },
         })
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getUnreadCount: async (): Promise<UnreadNotificationCount> => {
@@ -60,7 +61,7 @@ export const notificationApi = {
             `/notifications/${notificationId}/read`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     markAllAsRead: async (): Promise<void> => {

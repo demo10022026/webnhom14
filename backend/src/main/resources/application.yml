@@ -65,6 +65,16 @@ app:
     use-local: false
     base-url: ${BASE_URL:http://localhost:8080}
 
+  payment:
+    sepay:
+      enabled: ${SEPAY_ENABLED:false}
+      dev-simulate-enabled: ${SEPAY_DEV_SIMULATE_ENABLED:false}
+      bank-name: ${SEPAY_BANK_NAME:}
+      account-number: ${SEPAY_ACCOUNT_NUMBER:}
+      account-holder: ${SEPAY_ACCOUNT_HOLDER:}
+      api-key: ${SEPAY_WEBHOOK_API_KEY:}
+      qr-template: ${SEPAY_QR_TEMPLATE:compact}
+
 springdoc:
   api-docs:
     path: /v3/api-docs

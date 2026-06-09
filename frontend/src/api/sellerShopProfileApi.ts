@@ -1,11 +1,15 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export type SellerShopStatus = 'active' | 'hidden' | 'suspended'
 
 export interface SellerShopBankAccount {
     bankAccountId: number
     bankName: string
+    bankCode: string
+    bankBin: string
+    bankLogo?: string | null
     accountHolder: string
     accountNumber: string
     maskedAccountNumber?: string | null
@@ -38,6 +42,9 @@ export interface UpdateSellerShopProfilePayload {
 
 export interface UpsertSellerBankAccountPayload {
     bankName: string
+    bankCode: string
+    bankBin: string
+    bankLogo?: string | null
     accountHolder: string
     accountNumber: string
 }
@@ -48,7 +55,7 @@ export const sellerShopProfileApi = {
             '/seller/shop/profile'
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateMyShopProfile: async (
@@ -76,7 +83,7 @@ export const sellerShopProfileApi = {
             formData
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     upsertBankAccount: async (
@@ -87,6 +94,6 @@ export const sellerShopProfileApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

@@ -1,8 +1,11 @@
 @echo off
 cd /d "%~dp0"
 
-start "Chay backend" cmd /k "pushd "%~dp0backend" && mvnw.cmd spring-boot:run"
+set "JAVA_HOME=%~dp0tools\jdk-17"
+set "NODE_HOME=%~dp0tools\node"
+set "PATH=%JAVA_HOME%\bin;%NODE_HOME%;%NODE_HOME%\node_modules\npm\bin;%PATH%"
 
-start "Chay frontend" cmd /k "pushd "%~dp0frontend" && npm run dev"
+start "Backend" cmd /k "cd /d "%~dp0backend" && call mvnw.cmd spring-boot:run"
+start "Frontend" cmd /k "cd /d "%~dp0frontend" && call npm run dev"
 
 pause

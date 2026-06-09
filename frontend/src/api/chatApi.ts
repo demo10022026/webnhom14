@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface PageResponse<T> {
     content: T[]
@@ -63,7 +64,7 @@ export const chatApi = {
             `/chats/shops/key/${encodeURIComponent(String(shopKey))}/start`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getConversations: async (): Promise<ChatConversation[]> => {
@@ -89,7 +90,7 @@ export const chatApi = {
             }
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     sendMessage: async (
@@ -103,7 +104,7 @@ export const chatApi = {
             }
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     markAsRead: async (
@@ -113,7 +114,7 @@ export const chatApi = {
             `/chats/conversations/${conversationId}/read`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getUnreadCount: async (): Promise<number> => {

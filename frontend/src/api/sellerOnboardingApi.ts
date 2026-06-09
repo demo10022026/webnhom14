@@ -1,6 +1,7 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
 import type { SellerProfile, SellerDocument } from '@/types/seller.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export const sellerOnboardingApi = {
   /**
@@ -18,7 +19,7 @@ export const sellerOnboardingApi = {
         }
     )
 
-    return res.data.data!
+    return unwrapApiResponse(res.data)
   },
 
   /**
@@ -41,7 +42,7 @@ export const sellerOnboardingApi = {
         form
     )
 
-    return res.data.data!
+    return unwrapApiResponse(res.data)
   },
 
   /**

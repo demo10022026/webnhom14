@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface PublicShop {
     shopId: number
@@ -22,6 +23,6 @@ export const shopApi = {
             `/shops/${shopSlugOrId}`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

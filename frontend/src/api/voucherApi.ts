@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export type VoucherDiscountType = 'fixed' | 'percent'
 export type VoucherScope = 'platform' | 'shop'
@@ -88,7 +89,7 @@ export const voucherApi = {
             `/vouchers/${voucherId}/save`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     removeSavedVoucher: async (voucherId: number): Promise<void> => {

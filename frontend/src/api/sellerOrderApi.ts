@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface PageResponse<T> {
     content: T[]
@@ -93,7 +94,7 @@ export const sellerOrderApi = {
             params: cleanParams(params),
         })
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getMyShopOrderDetail: async (
@@ -103,7 +104,7 @@ export const sellerOrderApi = {
             `/seller/orders/${orderId}`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateOrderStatus: async (
@@ -117,6 +118,6 @@ export const sellerOrderApi = {
             }
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

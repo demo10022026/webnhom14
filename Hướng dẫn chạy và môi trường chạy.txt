@@ -1,0 +1,52 @@
+Cách 1 :truy cập https://enchanting-marigold-597279.netlify.app/
+
+Cách 2 :chạy local trên máy, với cách 2 cần đáp ứng các yêu cầu bên dưới
+
+I.Môi trường cần có:
+1.Java JDK 21: 
+
+Mở file explorer của dự án cài đặt file jdk-21.0.10_windows-x64_bin.exe
+
+- Cài đặt như phần mềm bình thường.
+- Khi cài nên bật tùy chọn thêm Java vào PATH nếu trình cài đặt có hỏi.
+
+Sau khi cài xong, mở CMD mới và kiểm tra:
+
+java -version
+
+Kết quả đúng cần có dạng gần giống:
+
+java version "21.x.x"
+
+Hoặc:
+
+openjdk version "21.x.x"
+
+Nếu CMD báo "'java' is not recognized" thì Java chưa được thêm vào PATH hoặc chưa cài đúng.
+
+2.Node.js LTS
+
+Mở file explorer của dự án cài đặt file node-v24.16.0-x64.msi
+ 
+- Cài đặt như phần mềm bình thường.
+- Trong quá trình cài đặt, giữ các lựa chọn mặc định.
+- npm sẽ được cài kèm theo Node.js.
+
+Sau khi cài xong, mở CMD mới và kiểm tra:
+
+node -v
+
+npm -v
+
+Nếu cả hai lệnh đều hiện phiên bản thì Node.js và npm đã hoạt động.
+
+Ví dụ kết quả đúng:
+
+v24.x.x
+
+10.x.x
+
+Nếu CMD báo "'node' is not recognized" hoặc "'npm' is not recognized" thì Node.js chưa được thêm vào PATH hoặc cần khởi động lại CMD.
+
+II.Cách chạy:
+Tìm file có tên là run.bat và doule click cửa sổ cmd sẽ tự động mở và khởi chạy khi đã chạy thành công truy cập http://localhost:5173/ 

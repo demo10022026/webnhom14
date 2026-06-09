@@ -31,29 +31,38 @@ public class SecurityConfig {
     private final CorsProperties corsProperties;
 
     // ---- Endpoint không cần auth ----
-    private static final String[] PUBLIC_URLS = {
-            "/auth/**",
+    private static final String[] PUBLIC_AUTH_URLS = {
+            "/auth/register",
+            "/auth/login",
+            "/auth/refresh",
+            "/auth/logout",
+            "/auth/send-verify-email",
+            "/auth/verify-email",
+            "/auth/forgot-password",
+            "/auth/reset-password"
+    };
 
+    private static final String[] PUBLIC_GET_URLS = {
             "/home",
             "/home/**",
-
             "/products",
             "/products/**",
-
             "/categories",
             "/categories/**",
-
             "/brands",
             "/brands/**",
-
             "/shops",
             "/shops/**",
+            "/reviews",
+            "/reviews/**"
+    };
 
+    private static final String[] PUBLIC_INFRA_URLS = {
             "/ws/**",
-
             "/v3/api-docs/**",
             "/swagger-ui/**",
-            "/swagger-ui.html"
+            "/swagger-ui.html",
+            "/payments/sepay/webhook"
     };
 
     @Bean
@@ -65,8 +74,9 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(PUBLIC_URLS).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/reviews", "/reviews/**").permitAll()
+                        .requestMatchers(PUBLIC_AUTH_URLS).permitAll()
+                        .requestMatchers(HttpMethod.GET, PUBLIC_GET_URLS).permitAll()
+                        .requestMatchers(PUBLIC_INFRA_URLS).permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

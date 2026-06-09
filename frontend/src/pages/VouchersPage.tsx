@@ -17,6 +17,7 @@ import {
     type Voucher,
     type VoucherScope,
 } from '@/api/voucherApi'
+import { getApiErrorMessage } from '@/api/httpError'
 
 type MainTab = 'available' | 'saved'
 type SavedStatus = 'all' | 'usable' | 'expired' | 'used'
@@ -126,7 +127,6 @@ function isExpiredSoon(voucher: Voucher) {
 function canSaveVoucher(voucher: Voucher) {
     if (voucher.saved) return false
 
-    // @ts-ignore
     if (
         voucher.voucherStatus === 'inactive' ||
         voucher.voucherStatus === 'expired' ||
@@ -427,9 +427,9 @@ export default function VouchersPage() {
                 queryKey: ['myVouchers'],
             })
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
             toast.error(
-                err?.response?.data?.message || 'Không thể lưu voucher'
+                getApiErrorMessage(err, 'Không thể lưu voucher')
             )
         },
     })
@@ -445,9 +445,9 @@ export default function VouchersPage() {
                 queryKey: ['myVouchers'],
             })
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
             toast.error(
-                err?.response?.data?.message || 'Không thể bỏ lưu voucher'
+                getApiErrorMessage(err, 'Không thể bỏ lưu voucher')
             )
         },
     })

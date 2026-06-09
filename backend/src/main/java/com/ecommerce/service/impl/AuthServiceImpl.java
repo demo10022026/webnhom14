@@ -7,12 +7,15 @@ import com.ecommerce.exception.AppException;
 import com.ecommerce.repository.*;
 import com.ecommerce.security.JwtUtil;
 import com.ecommerce.service.*;
+import com.ecommerce.util.UploadFolders;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -27,6 +30,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final OtpService otpService;
+    private final ImageStorageService imageStorage;
 
     @Value("${app.jwt.refresh-expiration-ms}")
     private long refreshExpirationMs;
@@ -172,6 +176,43 @@ public class AuthServiceImpl implements AuthService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         refreshTokenRepository.deleteAllByUser(user);
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse.UserInfo updateAvatar(String email, MultipartFile avatar) {
+        if (avatar == null || avatar.isEmpty()) {
+            throw new AppException(
+                    "Vui lòng chọn ảnh avatar",
+                    HttpStatus.BAD_REQUEST,
+                    "AVATAR_REQUIRED"
+            );
+        }
+
+        String contentType = avatar.getContentType();
+        if (contentType == null ||
+                !(contentType.equals("image/jpeg")
+                        || contentType.equals("image/png")
+                        || contentType.equals("image/webp"))) {
+            throw new AppException(
+                    "Avatar chỉ hỗ trợ JPG, PNG hoặc WEBP",
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_AVATAR_TYPE"
+            );
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> AppException.notFound("User"));
+
+        ImageStorageService.UploadResult uploaded = imageStorage.uploadWithInfo(
+                avatar,
+                UploadFolders.userAvatar(user.getUserId())
+        );
+
+        user.setAvatarUrl(uploaded.getUrl());
+        User saved = userRepository.save(user);
+
+        return mapUserInfo(saved);
     }
 
     private AuthResponse buildAuthResponse(User user) {

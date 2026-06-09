@@ -4,6 +4,7 @@ import com.ecommerce.entity.Voucher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,6 +15,19 @@ import java.util.Optional;
 public interface VoucherRepository extends JpaRepository<Voucher, Integer> {
 
     Optional<Voucher> findByCodeIgnoreCase(String code);
+
+    @Modifying(flushAutomatically = true)
+    @Query("""
+        UPDATE Voucher v
+        SET v.usedCount = COALESCE(v.usedCount, 0) + 1
+        WHERE v = :voucher
+        AND (
+            v.usageLimit IS NULL
+            OR v.usageLimit <= 0
+            OR COALESCE(v.usedCount, 0) < v.usageLimit
+        )
+    """)
+    int increaseUsageIfAvailable(@Param("voucher") Voucher voucher);
 
     @Query("""
         SELECT v

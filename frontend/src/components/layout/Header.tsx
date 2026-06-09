@@ -3,7 +3,7 @@ import { Link, useNavigate }           from 'react-router-dom'
 import {
   ShoppingBag, Search, Tag, ShoppingCart,
   User, LogOut, ChevronDown, Store, Clock,
-  LayoutDashboard, Package,MessageCircle,
+  LayoutDashboard, Package, MessageCircle, MapPin,
 } from 'lucide-react'
 import { useAuthStore }   from '@/store/authStore'
 import { useSellerStore } from '@/store/sellerStore'
@@ -207,6 +207,11 @@ export default function Header() {
                       className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-gray-50 text-sm">
                       <ShoppingBag className="h-4 w-4 text-gray-400" />
                       Đơn mua của tôi
+                    </Link>
+                    <Link to="/addresses" onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-gray-50 text-sm">
+                      <MapPin className="h-4 w-4 text-gray-400" />
+                      Địa chỉ của tôi
                     </Link>
                     <Link to="/vouchers" onClick={() => setDropdownOpen(false)}
                           className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-gray-50 text-sm">

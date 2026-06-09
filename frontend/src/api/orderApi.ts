@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export type OrderStatus =
     | 'pending'
@@ -117,7 +118,7 @@ export const orderApi = {
             `/orders/${orderId}/cancel`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     createReview: async ({
@@ -132,7 +133,7 @@ export const orderApi = {
             data
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     buyAgain: async (orderId: number): Promise<BuyAgainResponse> => {
@@ -140,6 +141,6 @@ export const orderApi = {
             `/orders/${orderId}/buy-again`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

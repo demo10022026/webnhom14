@@ -31,6 +31,9 @@ public class SellerShopProfileResponse {
     public static class BankAccount {
         private Integer bankAccountId;
         private String bankName;
+        private String bankCode;
+        private String bankBin;
+        private String bankLogo;
         private String accountHolder;
         private String accountNumber;
         private String maskedAccountNumber;

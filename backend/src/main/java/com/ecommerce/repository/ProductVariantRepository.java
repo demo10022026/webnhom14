@@ -5,6 +5,7 @@ import com.ecommerce.entity.ProductVariant;
 import com.ecommerce.entity.Shop;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -32,6 +33,18 @@ public interface ProductVariantRepository
     );
 
     Optional<ProductVariant> findBySku(String sku);
+
+    @Modifying(flushAutomatically = true)
+    @Query("""
+        UPDATE ProductVariant v
+        SET v.stockQuantity = v.stockQuantity - :quantity
+        WHERE v.variantId = :variantId
+        AND v.stockQuantity >= :quantity
+    """)
+    int decreaseStockIfAvailable(
+            @Param("variantId") Integer variantId,
+            @Param("quantity") int quantity
+    );
 
     @Query("""
         SELECT COUNT(v)

@@ -1,5 +1,6 @@
 import axiosInstance from '../axiosInstance.ts'
 import type { ApiResponse } from '@/types/auth.types.ts'
+import { unwrapApiResponse } from '@/api/apiResponse'
 import type {
     AdminPageResponse,
     AdminProductDetailResponse,
@@ -17,7 +18,7 @@ export const adminProductApi = {
             ApiResponse<AdminPageResponse<AdminProductResponse>>
         >('/admin/products', { params })
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getProductDetail: async (
@@ -27,7 +28,7 @@ export const adminProductApi = {
             ApiResponse<AdminProductDetailResponse>
         >(`/admin/products/${productId}`)
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateProduct: async (
@@ -38,7 +39,7 @@ export const adminProductApi = {
             ApiResponse<AdminProductDetailResponse>
         >(`/admin/products/${productId}`, body)
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateStatus: async (
@@ -50,7 +51,7 @@ export const adminProductApi = {
             body
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     softDelete: async (productId: number): Promise<AdminProductResponse> => {
@@ -58,7 +59,7 @@ export const adminProductApi = {
             `/admin/products/${productId}`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     permanentDelete: async (productId: number): Promise<void> => {

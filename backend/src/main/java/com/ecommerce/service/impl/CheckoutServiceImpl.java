@@ -1,5 +1,6 @@
 package com.ecommerce.service.impl;
 
+import com.ecommerce.config.SePayProperties;
 import com.ecommerce.dto.request.CheckoutRequest;
 import com.ecommerce.dto.response.CheckoutPlaceOrderResponse;
 import com.ecommerce.dto.response.CheckoutSummaryResponse;
@@ -14,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -33,6 +36,8 @@ public class CheckoutServiceImpl implements CheckoutService {
     private final OrderItemRepository orderItemRepo;
     private final VoucherRepository voucherRepo;
     private final UserVoucherRepository userVoucherRepo;
+    private final PaymentRepository paymentRepo;
+    private final SePayProperties sePayProperties;
 
     @Override
     @Transactional(readOnly = true)
@@ -87,6 +92,7 @@ public class CheckoutServiceImpl implements CheckoutService {
         }
 
         CheckoutSummaryResponse summary = buildSummary(items, voucher);
+        Payment.PaymentMethod paymentMethod = parsePaymentMethod(request.getPaymentMethod());
 
         Order order = Order.builder()
                 .user(user)
@@ -102,6 +108,7 @@ public class CheckoutServiceImpl implements CheckoutService {
                 .build();
 
         Order savedOrder = orderRepo.save(order);
+        String orderCode = toOrderCode(savedOrder.getOrderId());
 
         List<OrderItem> orderItems = new ArrayList<>();
 
@@ -109,8 +116,13 @@ public class CheckoutServiceImpl implements CheckoutService {
             ProductVariant variant = cartItem.getVariant();
             Product product = variant.getProduct();
 
-            int nextStock = safeInt(variant.getStockQuantity()) - safeInt(cartItem.getQuantity());
-            if (nextStock < 0) {
+            int quantity = safeInt(cartItem.getQuantity());
+            int updatedRows = variantRepo.decreaseStockIfAvailable(
+                    variant.getVariantId(),
+                    quantity
+            );
+
+            if (updatedRows == 0) {
                 throw new AppException(
                         "Sản phẩm " + product.getProductName() + " không đủ tồn kho",
                         HttpStatus.BAD_REQUEST,
@@ -118,15 +130,12 @@ public class CheckoutServiceImpl implements CheckoutService {
                 );
             }
 
-            variant.setStockQuantity(nextStock);
-            variantRepo.save(variant);
-
             OrderItem orderItem = OrderItem.builder()
                     .order(savedOrder)
                     .shop(product.getShop())
                     .product(product)
                     .variant(variant)
-                    .quantity(cartItem.getQuantity())
+                    .quantity(quantity)
                     .price(variant.getPrice())
                     .build();
 
@@ -141,11 +150,23 @@ public class CheckoutServiceImpl implements CheckoutService {
 
         cartItemRepo.deleteAll(items);
 
+        Payment payment = Payment.builder()
+                .order(savedOrder)
+                .paymentMethod(paymentMethod)
+                .paymentStatus(Payment.PaymentStatus.pending)
+                .build();
+        Payment savedPayment = paymentRepo.save(payment);
+        if (paymentMethod == Payment.PaymentMethod.bank_transfer) {
+            savedPayment.setTransactionCode(buildTransactionCode(savedOrder, savedPayment));
+            savedPayment = paymentRepo.save(savedPayment);
+        }
+
         return CheckoutPlaceOrderResponse.builder()
                 .orderId(savedOrder.getOrderId())
-                .orderCode(toOrderCode(savedOrder.getOrderId()))
+                .orderCode(orderCode)
                 .totalAmount(summary.getTotalAmount())
                 .orderStatus(savedOrder.getOrderStatus().name())
+                .payment(toPaymentInfo(savedPayment))
                 .build();
     }
 
@@ -495,18 +516,27 @@ public class CheckoutServiceImpl implements CheckoutService {
             User user,
             Voucher voucher
     ) {
-        voucher.setUsedCount(safeInt(voucher.getUsedCount()) + 1);
-        voucherRepo.save(voucher);
+        int voucherRows = voucherRepo.increaseUsageIfAvailable(voucher);
+        if (voucherRows == 0) {
+            throw new AppException(
+                    "Voucher đã hết lượt sử dụng",
+                    HttpStatus.BAD_REQUEST,
+                    "VOUCHER_USED_OUT"
+            );
+        }
 
-        UserVoucher userVoucher = userVoucherRepo.findByUserAndVoucher(user, voucher)
-                .orElseThrow(() -> new AppException(
-                        "Bạn cần lưu voucher trước khi sử dụng",
-                        HttpStatus.BAD_REQUEST,
-                        "VOUCHER_NOT_SAVED"
-                ));
-
-        userVoucher.setUsedCount(safeInt(userVoucher.getUsedCount()) + 1);
-        userVoucherRepo.save(userVoucher);
+        int userVoucherRows = userVoucherRepo.increaseUsageIfAvailable(
+                user,
+                voucher,
+                voucher.getPerUserLimit()
+        );
+        if (userVoucherRows == 0) {
+            throw new AppException(
+                    "Bạn đã dùng hết lượt của voucher này",
+                    HttpStatus.BAD_REQUEST,
+                    "USER_VOUCHER_LIMIT_REACHED"
+            );
+        }
     }
 
     private BigDecimal lineTotal(CartItem item) {
@@ -528,5 +558,96 @@ public class CheckoutServiceImpl implements CheckoutService {
         }
 
         return "DH" + String.format("%06d", orderId);
+    }
+
+    private Payment.PaymentMethod parsePaymentMethod(String value) {
+        if (value == null || value.isBlank() || value.equalsIgnoreCase("cod")) {
+            return Payment.PaymentMethod.cod;
+        }
+
+        if (value.equalsIgnoreCase("sepay")) {
+            if (!sePayProperties.isEnabled()) {
+                throw new AppException(
+                        "Thanh toán SePay chưa được cấu hình",
+                        HttpStatus.BAD_REQUEST,
+                        "SEPAY_NOT_CONFIGURED"
+                );
+            }
+
+            return Payment.PaymentMethod.bank_transfer;
+        }
+
+        throw new AppException(
+                "Phương thức thanh toán không hợp lệ",
+                HttpStatus.BAD_REQUEST,
+                "INVALID_PAYMENT_METHOD"
+        );
+    }
+
+    private CheckoutPlaceOrderResponse.PaymentInfo toPaymentInfo(Payment payment) {
+        return CheckoutPlaceOrderResponse.PaymentInfo.builder()
+                .paymentId(payment.getPaymentId())
+                .paymentMethod(toClientPaymentMethod(payment))
+                .paymentStatus(payment.getPaymentStatus().name())
+                .transactionCode(payment.getTransactionCode())
+                .qrCodeUrl(buildQrCodeUrl(payment))
+                .build();
+    }
+
+    private String buildTransactionCode(Order order, Payment payment) {
+        return "SP" + order.getOrderId() + "P" + payment.getPaymentId();
+    }
+
+    private String buildQrCodeUrl(Payment payment) {
+        if (!isSePayPayment(payment)) {
+            return null;
+        }
+
+        String accountNumber = normalizeText(sePayProperties.getAccountNumber());
+        String bankName = normalizeText(sePayProperties.getBankName());
+
+        if (accountNumber == null || bankName == null) {
+            return null;
+        }
+
+        BigDecimal amount = safeMoney(payment.getOrder().getTotalAmount())
+                .setScale(0, RoundingMode.HALF_UP);
+        String template = normalizeText(sePayProperties.getQrTemplate());
+
+        return "https://qr.sepay.vn/img"
+                + "?acc=" + encode(accountNumber)
+                + "&bank=" + encode(bankName)
+                + "&amount=" + encode(amount.toPlainString())
+                + "&des=" + encode(payment.getTransactionCode())
+                + "&template=" + encode(template == null ? "compact" : template);
+    }
+
+    private boolean isSePayPayment(Payment payment) {
+        return payment.getTransactionCode() != null
+                && payment.getTransactionCode().startsWith("SP")
+                && (
+                payment.getPaymentMethod() == Payment.PaymentMethod.sepay
+                        || payment.getPaymentMethod() == Payment.PaymentMethod.bank_transfer
+        );
+    }
+
+    private String toClientPaymentMethod(Payment payment) {
+        return isSePayPayment(payment)
+                ? "sepay"
+                : payment.getPaymentMethod().name();
+    }
+
+    private String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }

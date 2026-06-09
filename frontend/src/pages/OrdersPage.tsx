@@ -1,5 +1,5 @@
-import { FormEvent, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { FormEvent, useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -11,6 +11,7 @@ import {
     Truck,
 } from 'lucide-react'
 import { orderApi, type OrderStatus, type UserOrder } from '@/api/orderApi'
+import { getApiErrorMessage } from '@/api/httpError'
 import ContactSellerButton from '@/components/chat/ContactSellerButton'
 
 const ORDER_TABS: Array<{
@@ -99,9 +100,9 @@ function OrderCard({ order }: { order: UserOrder }) {
                 queryKey: ['myOrders'],
             })
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
             toast.error(
-                err?.response?.data?.message || 'Không thể hủy đơn hàng'
+                getApiErrorMessage(err, 'Không thể hủy đơn hàng')
             )
         },
     })
@@ -128,7 +129,7 @@ function OrderCard({ order }: { order: UserOrder }) {
                     </span>
 
                     <ContactSellerButton
-                        shopId={(order as any).shopId}
+                        shopId={order.shopId}
                         shopSlug={order.shopSlug}
                         className="inline-flex items-center gap-1 rounded-sm bg-red-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -286,7 +287,7 @@ function OrderCard({ order }: { order: UserOrder }) {
                     )}
 
                     <ContactSellerButton
-                        shopId={(order as any).shopId}
+                        shopId={order.shopId}
                         shopSlug={order.shopSlug}
                         className="rounded-sm border border-gray-200 px-8 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -299,6 +300,7 @@ function OrderCard({ order }: { order: UserOrder }) {
 }
 
 export default function OrdersPage() {
+    const [searchParams, setSearchParams] = useSearchParams()
     const [activeTab, setActiveTab] = useState<'all' | OrderStatus>('all')
     const [keywordInput, setKeywordInput] = useState('')
     const [keyword, setKeyword] = useState('')
@@ -316,6 +318,23 @@ export default function OrdersPage() {
             }),
         staleTime: 0,
     })
+
+    useEffect(() => {
+        const payment = searchParams.get('payment')
+        const code = searchParams.get('code')
+
+        if (!payment) return
+
+        if (payment === 'success') {
+            toast.success(`Thanh toán thành công${code ? `: ${code}` : ''}`)
+        } else {
+            toast.error(`Thanh toán chưa thành công${code ? `: ${code}` : ''}`)
+        }
+
+        searchParams.delete('payment')
+        searchParams.delete('code')
+        setSearchParams(searchParams, { replace: true })
+    }, [searchParams, setSearchParams])
 
     const handleSearch = (e: FormEvent) => {
         e.preventDefault()

@@ -29,6 +29,7 @@
     "zustand": "^4.5.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^25.8.0",
     "@types/numeral": "^2.0.5",
     "@types/react": "^18.3.3",

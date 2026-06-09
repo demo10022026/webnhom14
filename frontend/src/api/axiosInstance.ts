@@ -5,17 +5,15 @@ import axios, {
 import toast from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore'
 import type { ApiResponse, AuthResponse } from '@/types/auth.types'
-
-// @ts-ignore
-const BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080/api'
+import { API_BASE_URL } from '@/config/env'
 
 const axiosInstance = axios.create({
-    baseURL: BASE_URL,
+    baseURL: API_BASE_URL,
     timeout: 30000,
 })
 
 const plainAxios = axios.create({
-    baseURL: BASE_URL,
+    baseURL: API_BASE_URL,
     timeout: 30000,
 })
 

@@ -1,5 +1,6 @@
 import axiosInstance from '@/api/axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface DashboardResponse {
     totalUsers: number
@@ -29,7 +30,7 @@ export const adminDashboardApi = {
 
         console.log('dashboard response', res.data)
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }
 

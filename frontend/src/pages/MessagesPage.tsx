@@ -7,10 +7,12 @@ import {
     Package,
     Send,
     Store,
+    UserRound,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { chatApi, type ChatConversation, type ChatMessage } from '@/api/chatApi'
 import { useChatSocket } from '@/hooks/useChatSocket'
+import { useAuthStore } from '@/store/authStore'
 
 function formatTime(value?: string | null) {
     if (!value) return ''
@@ -23,12 +25,53 @@ function formatTime(value?: string | null) {
     }).format(new Date(value))
 }
 
-function ConversationAvatar({ conversation }: { conversation: ChatConversation }) {
-    if (conversation.shopAvatarUrl) {
+interface ConversationDisplay {
+    title: string
+    subtitle: string
+    avatarUrl?: string | null
+    avatarAlt: string
+    type: 'buyer' | 'shop'
+}
+
+function getConversationDisplay(
+    conversation: ChatConversation,
+    currentUserId?: number
+): ConversationDisplay {
+    const viewingAsSeller = currentUserId === conversation.sellerUserId
+
+    if (viewingAsSeller) {
+        const title = conversation.userName || 'Khách hàng'
+
+        return {
+            title,
+            subtitle: 'Khách hàng',
+            avatarUrl: conversation.userAvatarUrl,
+            avatarAlt: title,
+            type: 'buyer',
+        }
+    }
+
+    const title = conversation.shopName || conversation.sellerUserName || 'Shop'
+
+    return {
+        title,
+        subtitle: `Người bán: ${conversation.sellerUserName || 'ShopVN Seller'}`,
+        avatarUrl: conversation.shopAvatarUrl || conversation.sellerAvatarUrl,
+        avatarAlt: title,
+        type: 'shop',
+    }
+}
+
+function ConversationAvatar({
+    display,
+}: {
+    display: ConversationDisplay
+}) {
+    if (display.avatarUrl) {
         return (
             <img
-                src={conversation.shopAvatarUrl}
-                alt={conversation.shopName}
+                src={display.avatarUrl}
+                alt={display.avatarAlt}
                 className="h-11 w-11 rounded-full object-cover"
             />
         )
@@ -36,7 +79,11 @@ function ConversationAvatar({ conversation }: { conversation: ChatConversation }
 
     return (
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-orange-100 text-orange-500">
-            <Store className="h-5 w-5" />
+            {display.type === 'buyer' ? (
+                <UserRound className="h-5 w-5" />
+            ) : (
+                <Store className="h-5 w-5" />
+            )}
         </div>
     )
 }
@@ -60,6 +107,7 @@ function EmptyConversation() {
 export default function MessagesPage() {
     const queryClient = useQueryClient()
     const [searchParams, setSearchParams] = useSearchParams()
+    const currentUserId = useAuthStore((state) => state.user?.userId)
 
     const selectedIdParam = searchParams.get('conversationId')
     const selectedConversationId = selectedIdParam
@@ -105,6 +153,12 @@ export default function MessagesPage() {
                 conversation.conversationId === selectedConversationId
         ) ?? null
     }, [conversations, selectedConversationId])
+
+    const selectedConversationDisplay = useMemo(() => {
+        if (!selectedConversation) return null
+
+        return getConversationDisplay(selectedConversation, currentUserId)
+    }, [selectedConversation, currentUserId])
 
     const {
         data: messagesPage,
@@ -219,6 +273,10 @@ export default function MessagesPage() {
                                 const active =
                                     conversation.conversationId ===
                                     selectedConversationId
+                                const display = getConversationDisplay(
+                                    conversation,
+                                    currentUserId
+                                )
 
                                 return (
                                     <button
@@ -235,13 +293,13 @@ export default function MessagesPage() {
                                         ].join(' ')}
                                     >
                                         <ConversationAvatar
-                                            conversation={conversation}
+                                            display={display}
                                         />
 
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center justify-between gap-2">
                                                 <p className="truncate text-sm font-semibold text-gray-900">
-                                                    {conversation.shopName}
+                                                    {display.title}
                                                 </p>
 
                                                 {conversation.myUnreadCount > 0 && (
@@ -279,18 +337,18 @@ export default function MessagesPage() {
                             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
                                 <div className="flex items-center gap-3">
                                     <ConversationAvatar
-                                        conversation={selectedConversation}
+                                        display={selectedConversationDisplay!}
                                     />
 
                                     <div>
                                         <p className="font-semibold text-gray-900">
-                                            {selectedConversation.shopName}
+                                            {selectedConversationDisplay!.title}
                                         </p>
 
                                         <p className="text-xs text-gray-400">
-                                            Người bán:{' '}
                                             {
-                                                selectedConversation.sellerUserName
+                                                selectedConversationDisplay!
+                                                    .subtitle
                                             }
                                         </p>
                                     </div>

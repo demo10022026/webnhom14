@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance'
 import type { ApiResponse } from '@/types/auth.types'
+import { unwrapApiResponse } from '@/api/apiResponse'
 
 export interface PageResponse<T> {
     content: T[]
@@ -145,7 +146,7 @@ export const sellerProductApi = {
             '/seller/products/options'
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     createProduct: async (
@@ -177,7 +178,7 @@ export const sellerProductApi = {
             formData
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getMyProducts: async (
@@ -189,7 +190,7 @@ export const sellerProductApi = {
             params: cleanParams(params),
         })
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     getMyProductDetail: async (
@@ -199,7 +200,7 @@ export const sellerProductApi = {
             `/seller/products/${productId}`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateProduct: async (
@@ -211,7 +212,7 @@ export const sellerProductApi = {
             payload
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateProductStatus: async (
@@ -223,7 +224,7 @@ export const sellerProductApi = {
             { productStatus }
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     updateVariantStock: async (
@@ -236,7 +237,7 @@ export const sellerProductApi = {
             { stockQuantity }
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     addProductImages: async (
@@ -254,7 +255,7 @@ export const sellerProductApi = {
             formData
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     deleteProductImage: async (
@@ -265,7 +266,7 @@ export const sellerProductApi = {
             `/seller/products/${productId}/images/${imageId}`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 
     setProductThumbnail: async (
@@ -276,6 +277,6 @@ export const sellerProductApi = {
             `/seller/products/${productId}/images/${imageId}/thumbnail`
         )
 
-        return res.data.data!
+        return unwrapApiResponse(res.data)
     },
 }

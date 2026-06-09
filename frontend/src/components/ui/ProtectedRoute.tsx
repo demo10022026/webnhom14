@@ -11,11 +11,11 @@ export default function ProtectedRoute({
                                        }: ProtectedRouteProps) {
   const { isAuthenticated, user } = useAuthStore()
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />
   }
 
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />
   }
 
