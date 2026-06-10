@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 
 @Slf4j
 @Service
@@ -23,6 +24,9 @@ import java.util.Map;
 public class EmailService {
 
     private final ObjectMapper objectMapper;
+
+    @Value("${app.email.provider:gmail-api}")
+    private String emailProvider;
 
     @Value("${app.email.mailjet.api-key:}")
     private String mailjetApiKey;
@@ -36,6 +40,15 @@ public class EmailService {
     @Value("${app.email.from-name:ShopVN}")
     private String fromName;
 
+    @Value("${app.email.gmail.client-id:}")
+    private String gmailClientId;
+
+    @Value("${app.email.gmail.client-secret:}")
+    private String gmailClientSecret;
+
+    @Value("${app.email.gmail.refresh-token:}")
+    private String gmailRefreshToken;
+
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
@@ -43,11 +56,98 @@ public class EmailService {
     @Async
     public void sendOtpEmail(String toEmail, String otp, String purpose) {
         try {
-            sendWithMailjet(toEmail, getSubject(purpose), buildHtml(otp, purpose));
+            String subject = getSubject(purpose);
+            String html = buildHtml(otp, purpose);
+            if ("mailjet".equalsIgnoreCase(emailProvider)) {
+                sendWithMailjet(toEmail, subject, html);
+            } else {
+                sendWithGmailApi(toEmail, subject, html);
+            }
             log.info("Đã gửi OTP email đến: {}", toEmail);
         } catch (Exception e) {
             log.error("Lỗi gửi email đến {}: {}", toEmail, e.getMessage());
         }
+    }
+
+    private void sendWithGmailApi(String toEmail, String subject, String html) throws Exception {
+        if (gmailClientId == null || gmailClientId.isBlank()) {
+            throw new IllegalStateException("GMAIL_CLIENT_ID chưa được cấu hình");
+        }
+        if (gmailClientSecret == null || gmailClientSecret.isBlank()) {
+            throw new IllegalStateException("GMAIL_CLIENT_SECRET chưa được cấu hình");
+        }
+        if (gmailRefreshToken == null || gmailRefreshToken.isBlank()) {
+            throw new IllegalStateException("GMAIL_REFRESH_TOKEN chưa được cấu hình");
+        }
+        if (fromEmail == null || fromEmail.isBlank()) {
+            throw new IllegalStateException("MAIL_FROM_EMAIL chưa được cấu hình");
+        }
+
+        String accessToken = fetchGmailAccessToken();
+        String rawMessage = buildRawMimeMessage(toEmail, subject, html);
+
+        Map<String, Object> payload = Map.of("raw", rawMessage);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://gmail.googleapis.com/gmail/v1/users/me/messages/send"))
+                .timeout(Duration.ofSeconds(20))
+                .header("authorization", "Bearer " + accessToken)
+                .header("content-type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException("Gmail API trả HTTP " + response.statusCode() + ": " + response.body());
+        }
+    }
+
+    private String fetchGmailAccessToken() throws Exception {
+        String form = new StringJoiner("&")
+                .add("client_id=" + urlEncode(gmailClientId))
+                .add("client_secret=" + urlEncode(gmailClientSecret))
+                .add("refresh_token=" + urlEncode(gmailRefreshToken))
+                .add("grant_type=refresh_token")
+                .toString();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://oauth2.googleapis.com/token"))
+                .timeout(Duration.ofSeconds(20))
+                .header("content-type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(form))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException("Google OAuth trả HTTP " + response.statusCode() + ": " + response.body());
+        }
+
+        Map<?, ?> tokenResponse = objectMapper.readValue(response.body(), Map.class);
+        Object accessToken = tokenResponse.get("access_token");
+        if (accessToken == null || accessToken.toString().isBlank()) {
+            throw new IllegalStateException("Google OAuth không trả access_token");
+        }
+        return accessToken.toString();
+    }
+
+    private String buildRawMimeMessage(String toEmail, String subject, String html) {
+        String from = "%s <%s>".formatted(fromName, fromEmail);
+        String mime = """
+                From: %s
+                To: %s
+                Subject: %s
+                MIME-Version: 1.0
+                Content-Type: text/html; charset=UTF-8
+                Content-Transfer-Encoding: 8bit
+
+                %s
+                """.formatted(from, toEmail, subject, html);
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(mime.replace("\n", "\r\n").getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String urlEncode(String value) {
+        return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private void sendWithMailjet(String toEmail, String subject, String html) throws Exception {

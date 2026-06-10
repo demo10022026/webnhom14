@@ -35,8 +35,13 @@ spring:
 
 app:
   email:
+    provider: ${EMAIL_PROVIDER:gmail-api}
     from-email: ${MAIL_FROM_EMAIL:${MAIL_USERNAME:}}
     from-name: ${MAIL_FROM_NAME:ShopVN}
+    gmail:
+      client-id: ${GMAIL_CLIENT_ID:}
+      client-secret: ${GMAIL_CLIENT_SECRET:}
+      refresh-token: ${GMAIL_REFRESH_TOKEN:}
     mailjet:
       api-key: ${MAILJET_API_KEY:${MAIL_USERNAME:}}
       secret-key: ${MAILJET_SECRET_KEY:${MAIL_PASSWORD:}}
