@@ -8,6 +8,7 @@ import com.ecommerce.entity.*;
 import com.ecommerce.exception.AppException;
 import com.ecommerce.repository.*;
 import com.ecommerce.service.CheckoutService;
+import com.ecommerce.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -38,6 +39,7 @@ public class CheckoutServiceImpl implements CheckoutService {
     private final UserVoucherRepository userVoucherRepo;
     private final PaymentRepository paymentRepo;
     private final SePayProperties sePayProperties;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -161,6 +163,8 @@ public class CheckoutServiceImpl implements CheckoutService {
             savedPayment = paymentRepo.save(savedPayment);
         }
 
+        notifySellersAboutNewOrder(savedOrder, orderItems);
+
         return CheckoutPlaceOrderResponse.builder()
                 .orderId(savedOrder.getOrderId())
                 .orderCode(orderCode)
@@ -168,6 +172,40 @@ public class CheckoutServiceImpl implements CheckoutService {
                 .orderStatus(savedOrder.getOrderStatus().name())
                 .payment(toPaymentInfo(savedPayment))
                 .build();
+    }
+
+    private void notifySellersAboutNewOrder(
+            Order order,
+            List<OrderItem> orderItems
+    ) {
+        if (order == null || orderItems == null || orderItems.isEmpty()) {
+            return;
+        }
+
+        String orderCode = toOrderCode(order.getOrderId());
+
+        orderItems.stream()
+                .map(OrderItem::getShop)
+                .filter(Objects::nonNull)
+                .distinct()
+                .forEach(shop -> {
+                    SellerProfile seller = shop.getSeller();
+                    User sellerUser = seller == null ? null : seller.getUser();
+
+                    if (sellerUser == null) {
+                        return;
+                    }
+
+                    notificationService.createAndPush(
+                            sellerUser,
+                            "ORDER_CREATED",
+                            "Bạn có đơn hàng mới",
+                            "Đơn " + orderCode + " vừa được tạo tại shop " + shop.getShopName() + ".",
+                            "/seller/orders",
+                            "order",
+                            order.getOrderId()
+                    );
+                });
     }
 
     private User findUser(String email) {

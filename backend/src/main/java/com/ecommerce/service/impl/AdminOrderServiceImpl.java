@@ -10,6 +10,7 @@ import com.ecommerce.repository.OrderRepository;
 import com.ecommerce.repository.PaymentRepository;
 import com.ecommerce.repository.ProductRepository;
 import com.ecommerce.service.AdminOrderService;
+import com.ecommerce.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -35,6 +36,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final OrderItemRepository orderItemRepo;
     private final PaymentRepository paymentRepo;
     private final ProductRepository productRepo;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -139,9 +141,31 @@ public class AdminOrderServiceImpl implements AdminOrderService {
 
         Order saved = orderRepo.save(order);
 
+        notifyCustomerAboutStatus(saved, previousStatus, nextStatus);
+
         Payment payment = paymentRepo.findByOrder(saved).orElse(null);
 
         return toResponse(saved, items, payment);
+    }
+
+    private void notifyCustomerAboutStatus(
+            Order order,
+            Order.OrderStatus previousStatus,
+            Order.OrderStatus nextStatus
+    ) {
+        if (order == null || previousStatus == nextStatus || order.getUser() == null) {
+            return;
+        }
+
+        notificationService.createAndPush(
+                order.getUser(),
+                "ORDER_STATUS",
+                "Đơn hàng đã cập nhật",
+                "Đơn " + toOrderCode(order.getOrderId()) + " hiện ở trạng thái " + statusLabel(nextStatus) + ".",
+                "/orders",
+                "order",
+                order.getOrderId()
+        );
     }
 
     private void adjustSoldCountOnStatusChange(
@@ -412,5 +436,20 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         }
 
         return "DH" + String.format("%06d", orderId);
+    }
+
+    private String statusLabel(Order.OrderStatus status) {
+        if (status == null) {
+            return "không xác định";
+        }
+
+        return switch (status) {
+            case pending -> "chờ xác nhận";
+            case processing -> "đang xử lý";
+            case shipping -> "đang giao";
+            case delivered -> "đã giao";
+            case cancelled -> "đã hủy";
+            case returned -> "đã trả hàng";
+        };
     }
 }

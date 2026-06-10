@@ -29,6 +29,9 @@ function upsertFirstPage(
 ): PageResponse<NotificationItem> | undefined {
     if (!oldData) return oldData
 
+    const hadDuplicate = oldData.content.some(
+        (item) => item.notificationId === notification.notificationId
+    )
     const withoutDuplicate = oldData.content.filter(
         (item) => item.notificationId !== notification.notificationId
     )
@@ -36,7 +39,9 @@ function upsertFirstPage(
     return {
         ...oldData,
         content: [notification, ...withoutDuplicate].slice(0, oldData.size || 10),
-        totalElements: oldData.totalElements + 1,
+        totalElements: hadDuplicate
+            ? oldData.totalElements
+            : oldData.totalElements + 1,
     }
 }
 
@@ -52,6 +57,7 @@ export default function NotificationDropdown() {
         queryFn: () => notificationApi.getNotifications({ page: 0, size: 5 }),
         enabled: isAuthenticated,
         staleTime: 15 * 1000,
+        refetchInterval: open ? 10 * 1000 : false,
     })
 
     const unreadQuery = useQuery({
@@ -59,6 +65,7 @@ export default function NotificationDropdown() {
         queryFn: notificationApi.getUnreadCount,
         enabled: isAuthenticated,
         staleTime: 15 * 1000,
+        refetchInterval: 10 * 1000,
     })
 
     const onRealtimeNotification = useCallback(
@@ -84,7 +91,30 @@ export default function NotificationDropdown() {
 
     const markAsReadMutation = useMutation({
         mutationFn: notificationApi.markAsRead,
-        onSuccess: () => {
+        onSuccess: (notification) => {
+            queryClient.setQueryData<UnreadNotificationCount>(
+                ['notificationsUnreadCount'],
+                (old) => ({
+                    unreadCount: Math.max((old?.unreadCount ?? 1) - 1, 0),
+                })
+            )
+            queryClient.setQueriesData<PageResponse<NotificationItem>>(
+                { queryKey: ['notifications'] },
+                (old) => {
+                    if (!old) return old
+
+                    return {
+                        ...old,
+                        content: old.content.map((item) =>
+                            item.notificationId === notification.notificationId
+                                ? notification
+                                : item
+                        ),
+                    }
+                }
+            )
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['notifications'] })
             queryClient.invalidateQueries({ queryKey: ['notificationsUnreadCount'] })
         },
@@ -93,6 +123,29 @@ export default function NotificationDropdown() {
     const markAllMutation = useMutation({
         mutationFn: notificationApi.markAllAsRead,
         onSuccess: () => {
+            const readAt = new Date().toISOString()
+
+            queryClient.setQueryData<UnreadNotificationCount>(
+                ['notificationsUnreadCount'],
+                { unreadCount: 0 }
+            )
+            queryClient.setQueriesData<PageResponse<NotificationItem>>(
+                { queryKey: ['notifications'] },
+                (old) => {
+                    if (!old) return old
+
+                    return {
+                        ...old,
+                        content: old.content.map((item) => ({
+                            ...item,
+                            isRead: true,
+                            readAt: item.readAt ?? readAt,
+                        })),
+                    }
+                }
+            )
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['notifications'] })
             queryClient.invalidateQueries({ queryKey: ['notificationsUnreadCount'] })
         },

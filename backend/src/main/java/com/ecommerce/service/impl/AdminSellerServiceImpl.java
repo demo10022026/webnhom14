@@ -10,6 +10,7 @@ import com.ecommerce.repository.SellerDocumentRepository;
 import com.ecommerce.repository.SellerRepository;
 import com.ecommerce.repository.ShopRepository;
 import com.ecommerce.service.AdminSellerService;
+import com.ecommerce.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -29,6 +30,7 @@ public class AdminSellerServiceImpl implements AdminSellerService {
     private final SellerRepository sellerRepo;
     private final SellerDocumentRepository documentRepo;
     private final ShopRepository shopRepo;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -159,6 +161,13 @@ public class AdminSellerServiceImpl implements AdminSellerService {
         });
 
         SellerProfile saved = sellerRepo.save(seller);
+        notifySeller(
+                saved,
+                "SELLER_SUSPENDED",
+                "Shop của bạn đã bị tạm khóa",
+                "Tài khoản seller/shop của bạn đã bị tạm khóa. Lý do: "
+                        + Optional.ofNullable(saved.getRejectionReason()).orElse("Không có")
+        );
 
         return getSellerDetail(saved.getSellerId());
     }
@@ -183,6 +192,12 @@ public class AdminSellerServiceImpl implements AdminSellerService {
         });
 
         SellerProfile saved = sellerRepo.save(seller);
+        notifySeller(
+                saved,
+                "SELLER_APPROVED",
+                "Shop của bạn đã được kích hoạt lại",
+                "Tài khoản seller/shop của bạn đã được kích hoạt lại."
+        );
 
         return getSellerDetail(saved.getSellerId());
     }
@@ -240,6 +255,12 @@ public class AdminSellerServiceImpl implements AdminSellerService {
         documentRepo.saveAll(documents);
 
         SellerProfile saved = sellerRepo.save(seller);
+        notifySeller(
+                saved,
+                "SELLER_APPROVED",
+                "Hồ sơ seller đã được duyệt",
+                "Chúc mừng, hồ sơ seller của bạn đã được duyệt. Bạn có thể bắt đầu bán hàng."
+        );
 
         return toResponse(saved, documents, shopRepo.findBySeller(saved).orElse(null));
     }
@@ -263,8 +284,37 @@ public class AdminSellerServiceImpl implements AdminSellerService {
         documentRepo.saveAll(documents);
 
         SellerProfile saved = sellerRepo.save(seller);
+        notifySeller(
+                saved,
+                "SELLER_REJECTED",
+                "Hồ sơ seller bị từ chối",
+                "Hồ sơ seller của bạn chưa được duyệt. Lý do: " + reason
+        );
 
         return toResponse(saved, documents, shopRepo.findBySeller(saved).orElse(null));
+    }
+
+    private void notifySeller(
+            SellerProfile seller,
+            String type,
+            String title,
+            String content
+    ) {
+        User user = seller == null ? null : seller.getUser();
+
+        if (user == null) {
+            return;
+        }
+
+        notificationService.createAndPush(
+                user,
+                type,
+                title,
+                content,
+                "/seller/status",
+                "seller",
+                seller.getSellerId()
+        );
     }
 
     private SellerProfile findSeller(Integer sellerId) {

@@ -5,6 +5,7 @@ import com.ecommerce.dto.response.SellerOrderResponse;
 import com.ecommerce.entity.*;
 import com.ecommerce.exception.AppException;
 import com.ecommerce.repository.*;
+import com.ecommerce.service.NotificationService;
 import com.ecommerce.service.SellerOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -27,6 +28,7 @@ public class SellerOrderServiceImpl implements SellerOrderService {
     private final OrderRepository orderRepo;
     private final OrderItemRepository orderItemRepo;
     private final ProductRepository productRepo;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -120,12 +122,34 @@ public class SellerOrderServiceImpl implements SellerOrderService {
 
         Order saved = orderRepo.save(order);
 
+        notifyCustomerAboutStatus(saved, previousStatus, nextStatus);
+
         List<OrderItem> items = orderItemRepo.findByOrderAndShopWithProductVariant(
                 saved,
                 shop
         );
 
         return toResponse(saved, items, shop);
+    }
+
+    private void notifyCustomerAboutStatus(
+            Order order,
+            Order.OrderStatus previousStatus,
+            Order.OrderStatus nextStatus
+    ) {
+        if (order == null || previousStatus == nextStatus || order.getUser() == null) {
+            return;
+        }
+
+        notificationService.createAndPush(
+                order.getUser(),
+                "ORDER_STATUS",
+                "Đơn hàng đã cập nhật",
+                "Đơn " + toOrderCode(order.getOrderId()) + " hiện ở trạng thái " + statusLabel(nextStatus) + ".",
+                "/orders",
+                "order",
+                order.getOrderId()
+        );
     }
 
     private void adjustSoldCountOnStatusChange(
@@ -384,6 +408,21 @@ public class SellerOrderServiceImpl implements SellerOrderService {
         }
 
         return "DH" + String.format("%06d", orderId);
+    }
+
+    private String statusLabel(Order.OrderStatus status) {
+        if (status == null) {
+            return "không xác định";
+        }
+
+        return switch (status) {
+            case pending -> "chờ xác nhận";
+            case processing -> "đang xử lý";
+            case shipping -> "đang giao";
+            case delivered -> "đã giao";
+            case cancelled -> "đã hủy";
+            case returned -> "đã trả hàng";
+        };
     }
 
     private String buildFullShippingAddress(Order order) {
