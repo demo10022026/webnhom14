@@ -29,7 +29,7 @@ function Countdown({ endTime }: { endTime: string }) {
 
 function FlashSaleCard({ item }: { item: FlashSaleProduct }) {
   return (
-    <Link to={`/products/${item.productId}`}
+    <Link to={`/products/${item.productId}${item.variantId ? `?variantId=${item.variantId}` : ''}`}
       className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 group">
       <div className="relative overflow-hidden bg-gray-100">
         <img src={item.thumbnailUrl || 'https://placehold.co/300x300'}
@@ -43,6 +43,9 @@ function FlashSaleCard({ item }: { item: FlashSaleProduct }) {
       </div>
       <div className="p-3">
         <p className="text-sm font-medium text-gray-800 line-clamp-2 mb-2">{item.productName}</p>
+        {item.variantName && (
+          <p className="text-xs text-gray-400 line-clamp-1 mb-1">{item.variantName}</p>
+        )}
         <p className="text-orange-500 font-bold text-lg">{formatPrice(item.salePrice)}</p>
         {item.originalPrice && (
           <p className="text-xs text-gray-400 line-through mb-2">{formatPrice(item.originalPrice)}</p>
@@ -102,7 +105,12 @@ export function FlashSalePage() {
         </div>
       ) : data && data.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {data.map((item) => <FlashSaleCard key={item.productId} item={item} />)}
+          {data.map((item) => (
+            <FlashSaleCard
+              key={item.flashSaleItemId ?? `${item.productId}-${item.variantId}`}
+              item={item}
+            />
+          ))}
         </div>
       ) : (
         <div className="text-center py-20">

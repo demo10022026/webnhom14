@@ -6,6 +6,7 @@ import com.ecommerce.exception.AppException;
 import com.ecommerce.repository.CategoryRepository;
 import com.ecommerce.repository.FlashSaleRepository;
 import com.ecommerce.repository.ProductRepository;
+import com.ecommerce.service.FlashSaleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class ProductServiceImpl {
     private final ProductRepository productRepository;
     private final FlashSaleRepository flashSaleRepository;
     private final CategoryRepository categoryRepository;
+    private final FlashSaleService flashSaleService;
 
     // ---- Trang chủ ----
 
@@ -198,9 +200,9 @@ public class ProductServiceImpl {
                         .variantId(v.getVariantId())
                         .variantName(v.getVariantName())
                         .sku(v.getSku())
-                        .price(v.getPrice())
+                        .price(flashSaleService.getEffectivePrice(v))
                         .originalPrice(v.getOriginalPrice())
-                        .discountPercent(v.getDiscountPercent())
+                        .discountPercent(discountPercent(v))
                         .stockQuantity(v.getStockQuantity())
                         .imageUrl(v.getImageUrl())
                         .build())
@@ -248,18 +250,19 @@ public class ProductServiceImpl {
     private ProductDtos.FlashSaleProduct toFlashSale(FlashSaleItem item) {
         Product product = item.getProduct();
 
-        ProductVariant firstVariant = product.getVariants().isEmpty()
-                ? null
-                : product.getVariants().get(0);
+        ProductVariant displayVariant = item.getVariant();
 
         return ProductDtos.FlashSaleProduct.builder()
+                .flashSaleItemId(item.getId())
                 .productId(product.getProductId())
+                .variantId(displayVariant == null ? null : displayVariant.getVariantId())
+                .variantName(displayVariant == null ? null : displayVariant.getVariantName())
                 .productName(product.getProductName())
                 .thumbnailUrl(product.getThumbnailUrl())
                 .salePrice(item.getSalePrice())
                 .originalPrice(
-                        firstVariant != null
-                                ? firstVariant.getOriginalPrice()
+                        displayVariant != null
+                                ? displayVariant.getOriginalPrice()
                                 : null
                 )
                 .discountPercent(item.getDiscountPercent().intValue())
@@ -305,5 +308,24 @@ public class ProductServiceImpl {
             case "price_asc", "price_desc", "bestseller" -> sort.trim();
             default -> "newest";
         };
+    }
+
+    private int discountPercent(ProductVariant variant) {
+        if (variant == null || variant.getOriginalPrice() == null
+                || variant.getOriginalPrice().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            return 0;
+        }
+
+        java.math.BigDecimal effectivePrice = flashSaleService.getEffectivePrice(variant);
+
+        return java.math.BigDecimal.ONE
+                .subtract(effectivePrice.divide(
+                        variant.getOriginalPrice(),
+                        4,
+                        java.math.RoundingMode.HALF_UP
+                ))
+                .multiply(java.math.BigDecimal.valueOf(100))
+                .setScale(0, java.math.RoundingMode.HALF_UP)
+                .intValue();
     }
 }

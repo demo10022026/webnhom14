@@ -46,7 +46,10 @@ export interface ProductDetail {
 }
 
 export interface FlashSaleProduct {
+  flashSaleItemId: number
   productId: number
+  variantId?: number | null
+  variantName?: string | null
   productName: string
   thumbnailUrl: string
   salePrice: number

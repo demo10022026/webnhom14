@@ -37,7 +37,7 @@ function Countdown({ endTime }: { endTime: string }) {
 
 function FlashCard({ item }: { item: FlashSaleProduct }) {
   return (
-    <Link to={`/products/${item.productId}`}
+    <Link to={`/products/${item.productId}${item.variantId ? `?variantId=${item.variantId}` : ''}`}
       className="shrink-0 w-40 bg-white rounded-xl overflow-hidden shadow-sm
                  hover:shadow-md transition-all hover:-translate-y-0.5 group">
       <div className="relative overflow-hidden bg-gray-100">
@@ -55,6 +55,11 @@ function FlashCard({ item }: { item: FlashSaleProduct }) {
         <p className="text-xs font-medium text-gray-800 line-clamp-2 leading-tight mb-1.5">
           {item.productName}
         </p>
+        {item.variantName && (
+          <p className="text-[10px] text-gray-400 line-clamp-1 mb-1">
+            {item.variantName}
+          </p>
+        )}
         <p className="text-orange-500 font-bold text-sm">{formatPrice(item.salePrice)}</p>
         {item.originalPrice && (
           <p className="text-xs text-gray-400 line-through">{formatPrice(item.originalPrice)}</p>
@@ -144,7 +149,12 @@ export default function FlashSaleSlider({ items, endTime }: Props) {
           className="flex gap-3 overflow-x-auto scroll-smooth"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {items.map((item) => <FlashCard key={item.productId} item={item} />)}
+          {items.map((item) => (
+            <FlashCard
+              key={item.flashSaleItemId ?? `${item.productId}-${item.variantId}`}
+              item={item}
+            />
+          ))}
         </div>
 
         {canScrollRight && (

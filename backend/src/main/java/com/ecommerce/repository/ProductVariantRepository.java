@@ -70,4 +70,20 @@ public interface ProductVariantRepository
             @Param("threshold") int threshold,
             Pageable pageable
     );
+
+    @Query("""
+        SELECT v
+        FROM ProductVariant v
+        JOIN FETCH v.product p
+        JOIN FETCH p.shop s
+        WHERE p.productStatus = 'active'
+        AND v.stockQuantity > 0
+        AND v.price IS NOT NULL
+        AND v.price > 0
+        ORDER BY
+            COALESCE(p.soldCount, 0) DESC,
+            p.createdAt DESC,
+            v.stockQuantity DESC
+    """)
+    List<ProductVariant> findFlashSaleCandidates(Pageable pageable);
 }

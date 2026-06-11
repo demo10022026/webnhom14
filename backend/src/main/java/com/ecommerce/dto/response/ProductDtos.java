@@ -66,7 +66,10 @@ public class ProductDtos {
     /** Dùng cho flash sale */
     @Getter @Builder
     public static class FlashSaleProduct {
+        private Integer flashSaleItemId;
         private Integer productId;
+        private Integer variantId;
+        private String variantName;
         private String productName;
         private String thumbnailUrl;
         private BigDecimal salePrice;

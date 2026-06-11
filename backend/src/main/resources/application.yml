@@ -78,6 +78,15 @@ app:
       api-key: ${SEPAY_WEBHOOK_API_KEY:}
       qr-template: ${SEPAY_QR_TEMPLATE:compact}
 
+  flash-sale:
+    enabled: ${FLASH_SALE_ENABLED:true}
+    slot-hours: ${FLASH_SALE_SLOT_HOURS:2}
+    item-count: ${FLASH_SALE_ITEM_COUNT:8}
+    quantity-limit: ${FLASH_SALE_QUANTITY_LIMIT:50}
+    min-discount-percent: ${FLASH_SALE_MIN_DISCOUNT_PERCENT:5}
+    max-discount-percent: ${FLASH_SALE_MAX_DISCOUNT_PERCENT:25}
+    refresh-delay-ms: ${FLASH_SALE_REFRESH_DELAY_MS:300000}
+
 springdoc:
   api-docs:
     path: /v3/api-docs

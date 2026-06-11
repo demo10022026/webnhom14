@@ -8,6 +8,7 @@ import com.ecommerce.entity.*;
 import com.ecommerce.exception.AppException;
 import com.ecommerce.repository.*;
 import com.ecommerce.service.CheckoutService;
+import com.ecommerce.service.FlashSaleService;
 import com.ecommerce.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -40,6 +41,7 @@ public class CheckoutServiceImpl implements CheckoutService {
     private final PaymentRepository paymentRepo;
     private final SePayProperties sePayProperties;
     private final NotificationService notificationService;
+    private final FlashSaleService flashSaleService;
 
     @Override
     @Transactional(readOnly = true)
@@ -132,13 +134,18 @@ public class CheckoutServiceImpl implements CheckoutService {
                 );
             }
 
+            BigDecimal orderItemPrice = flashSaleService.reserveIfActive(
+                    variant,
+                    quantity
+            );
+
             OrderItem orderItem = OrderItem.builder()
                     .order(savedOrder)
                     .shop(product.getShop())
                     .product(product)
                     .variant(variant)
                     .quantity(quantity)
-                    .price(variant.getPrice())
+                    .price(orderItemPrice)
                     .build();
 
             orderItems.add(orderItem);
@@ -468,7 +475,7 @@ public class CheckoutServiceImpl implements CheckoutService {
                 .variantImageUrl(variant.getImageUrl())
                 .quantity(item.getQuantity())
                 .stockQuantity(variant.getStockQuantity())
-                .price(variant.getPrice())
+                .price(effectivePrice(item))
                 .originalPrice(variant.getOriginalPrice())
                 .lineTotal(lineTotal(item))
                 .build();
@@ -578,8 +585,16 @@ public class CheckoutServiceImpl implements CheckoutService {
     }
 
     private BigDecimal lineTotal(CartItem item) {
-        return safeMoney(item.getVariant().getPrice())
+        return safeMoney(effectivePrice(item))
                 .multiply(BigDecimal.valueOf(safeInt(item.getQuantity())));
+    }
+
+    private BigDecimal effectivePrice(CartItem item) {
+        if (item == null || item.getVariant() == null) {
+            return BigDecimal.ZERO;
+        }
+
+        return flashSaleService.getEffectivePrice(item.getVariant());
     }
 
     private BigDecimal safeMoney(BigDecimal value) {

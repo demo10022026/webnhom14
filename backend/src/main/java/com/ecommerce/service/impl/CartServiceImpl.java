@@ -12,6 +12,7 @@ import com.ecommerce.repository.ProductVariantRepository;
 import com.ecommerce.repository.ShoppingCartRepository;
 import com.ecommerce.repository.UserRepository;
 import com.ecommerce.service.CartService;
+import com.ecommerce.service.FlashSaleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class CartServiceImpl implements CartService {
     private final ShoppingCartRepository shoppingCartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductVariantRepository productVariantRepository;
+    private final FlashSaleService flashSaleService;
 
     @Override
     @Transactional
@@ -244,7 +246,7 @@ public class CartServiceImpl implements CartService {
         ProductVariant variant = item.getVariant();
         Product product = variant.getProduct();
 
-        BigDecimal price = variant.getPrice();
+        BigDecimal price = flashSaleService.getEffectivePrice(variant);
         BigDecimal itemTotal = price.multiply(BigDecimal.valueOf(item.getQuantity()));
 
         return CartItemResponse.builder()

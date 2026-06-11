@@ -1,5 +1,5 @@
 import {useState, useEffect, useMemo} from 'react'   // ← thêm useEffect
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ShoppingCart, Zap, Star, Store, ChevronRight,
@@ -51,6 +51,7 @@ export default function ProductDetailPage() {
   const productId = Number(id)
   const productIdValid = Number.isFinite(productId) && productId > 0
   const navigate    = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const setItemCount = useCartStore((state) => state.setItemCount)
   const { isAuthenticated } = useAuthStore()
@@ -134,9 +135,14 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (product?.variants?.length) {
-      setSelectedVariant(product.variants[0])
+      const variantId = Number(searchParams.get('variantId'))
+      const variantFromUrl = Number.isFinite(variantId)
+          ? product.variants.find((variant) => variant.variantId === variantId)
+          : null
+
+      setSelectedVariant(variantFromUrl ?? product.variants[0])
     }
-  }, [product])
+  }, [product, searchParams])
 
   const allImages = useMemo(() => {
     if (!product) return []
