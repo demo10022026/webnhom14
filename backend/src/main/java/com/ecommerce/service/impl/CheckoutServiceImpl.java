@@ -11,6 +11,7 @@ import com.ecommerce.service.CheckoutService;
 import com.ecommerce.service.FlashSaleService;
 import com.ecommerce.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +23,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.Objects;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CheckoutServiceImpl implements CheckoutService {
@@ -42,6 +45,7 @@ public class CheckoutServiceImpl implements CheckoutService {
     private final SePayProperties sePayProperties;
     private final NotificationService notificationService;
     private final FlashSaleService flashSaleService;
+    private final ShopRepository shopRepo;
 
     @Override
     @Transactional(readOnly = true)
@@ -170,7 +174,11 @@ public class CheckoutServiceImpl implements CheckoutService {
             savedPayment = paymentRepo.save(savedPayment);
         }
 
-        notifySellersAboutNewOrder(savedOrder, orderItems);
+        try {
+            notifySellersAboutNewOrder(savedOrder, orderItems);
+        } catch (Exception e) {
+            log.warn("Không gửi được thông báo seller cho order {}", savedOrder.getOrderId(), e);
+        }
 
         return CheckoutPlaceOrderResponse.builder()
                 .orderId(savedOrder.getOrderId())
@@ -181,38 +189,45 @@ public class CheckoutServiceImpl implements CheckoutService {
                 .build();
     }
 
-    private void notifySellersAboutNewOrder(
-            Order order,
-            List<OrderItem> orderItems
-    ) {
+    private void notifySellersAboutNewOrder(Order order, List<OrderItem> orderItems) {
         if (order == null || orderItems == null || orderItems.isEmpty()) {
             return;
         }
 
         String orderCode = toOrderCode(order.getOrderId());
 
-        orderItems.stream()
+        List<Integer> shopIds = orderItems.stream()
                 .map(OrderItem::getShop)
                 .filter(Objects::nonNull)
+                .map(Shop::getShopId)
+                .filter(Objects::nonNull)
                 .distinct()
-                .forEach(shop -> {
-                    SellerProfile seller = shop.getSeller();
-                    User sellerUser = seller == null ? null : seller.getUser();
+                .toList();
 
-                    if (sellerUser == null) {
-                        return;
-                    }
+        if (shopIds.isEmpty()) {
+            return;
+        }
 
-                    notificationService.createAndPush(
-                            sellerUser,
-                            "ORDER_CREATED",
-                            "Bạn có đơn hàng mới",
-                            "Đơn " + orderCode + " vừa được tạo tại shop " + shop.getShopName() + ".",
-                            "/seller/orders",
-                            "order",
-                            order.getOrderId()
-                    );
-                });
+        List<Shop> shops = shopRepo.findAllByShopIdInWithSellerUser(shopIds);
+
+        for (Shop shop : shops) {
+            SellerProfile seller = shop.getSeller();
+            User sellerUser = seller == null ? null : seller.getUser();
+
+            if (sellerUser == null) {
+                continue;
+            }
+
+            notificationService.createAndPush(
+                    sellerUser,
+                    "ORDER_CREATED",
+                    "Đơn hàng mới",
+                    "Shop của bạn vừa có đơn hàng mới " + orderCode,
+                    "/seller/orders",
+                    "order",
+                    order.getOrderId()
+            );
+        }
     }
 
     private User findUser(String email) {
