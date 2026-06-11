@@ -1,5 +1,6 @@
 package com.ecommerce.service.impl;
 
+import com.ecommerce.config.SePayProperties;
 import com.ecommerce.dto.request.CreateReviewRequest;
 import com.ecommerce.dto.response.BuyAgainResponse;
 import com.ecommerce.dto.response.UserOrderResponse;
@@ -15,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -29,6 +32,8 @@ public class UserOrderServiceImpl implements UserOrderService {
     private final ProductRepository productRepo;
     private final ShoppingCartRepository shoppingCartRepo;
     private final CartItemRepository cartItemRepo;
+    private final PaymentRepository paymentRepo;
+    private final SePayProperties sePayProperties;
 
     @Override
     @Transactional(readOnly = true)
@@ -67,6 +72,15 @@ public class UserOrderServiceImpl implements UserOrderService {
                         review -> review
                 ));
 
+        Map<Integer, Payment> paymentByOrderId = paymentRepo
+                .findByOrderIn(orders)
+                .stream()
+                .collect(Collectors.toMap(
+                        payment -> payment.getOrder().getOrderId(),
+                        payment -> payment,
+                        (oldValue, newValue) -> oldValue
+                ));
+
         String cleanKeyword = normalizeText(keyword);
 
         return orders.stream()
@@ -76,7 +90,8 @@ public class UserOrderServiceImpl implements UserOrderService {
                                 order.getOrderId(),
                                 List.of()
                         ),
-                        reviewsByOrderItemId
+                        reviewsByOrderItemId,
+                        paymentByOrderId.get(order.getOrderId())
                 ))
                 .filter(order -> matchKeyword(order, cleanKeyword))
                 .toList();
@@ -115,7 +130,9 @@ public class UserOrderServiceImpl implements UserOrderService {
                         review -> review
                 ));
 
-        return toResponse(saved, items, reviewsByOrderItemId);
+        Payment payment = paymentRepo.findByOrder(saved).orElse(null);
+
+        return toResponse(saved, items, reviewsByOrderItemId, payment);
     }
 
     @Override
@@ -320,7 +337,8 @@ public class UserOrderServiceImpl implements UserOrderService {
     private UserOrderResponse toResponse(
             Order order,
             List<OrderItem> items,
-            Map<Integer, Review> reviewsByOrderItemId
+            Map<Integer, Review> reviewsByOrderItemId,
+            Payment payment
     ) {
         OrderItem firstItem = items.isEmpty() ? null : items.get(0);
         Shop shop = firstItem == null ? null : firstItem.getShop();
@@ -337,30 +355,31 @@ public class UserOrderServiceImpl implements UserOrderService {
         return UserOrderResponse.builder()
                 .orderId(order.getOrderId())
                 .orderCode(toOrderCode(order.getOrderId()))
-                .orderStatus(order.getOrderStatus() == null
-                        ? null
-                        : order.getOrderStatus().name())
-
+                .orderStatus(order.getOrderStatus() == null ? null : order.getOrderStatus().name())
                 .shopId(shop == null ? null : shop.getShopId())
                 .shopName(shop == null ? null : shop.getShopName())
                 .shopSlug(shop == null ? null : shop.getShopSlug())
-
                 .subtotalAmount(subtotalAmount)
                 .shippingFee(safeMoney(order.getShippingFee()))
                 .totalAmount(safeMoney(order.getTotalAmount()))
-
                 .receiverName(order.getReceiverName())
                 .receiverPhone(order.getReceiverPhone())
                 .provinceName(order.getProvinceName())
                 .districtName(order.getDistrictName())
                 .wardName(order.getWardName())
                 .shippingAddress(order.getShippingAddress())
-
                 .ghnOrderCode(order.getGhnOrderCode())
                 .trackingCode(order.getTrackingCode())
-
+                .paymentId(payment == null ? null : payment.getPaymentId())
+                .paymentMethod(payment == null ? null : toClientPaymentMethod(payment))
+                .paymentStatus(
+                        payment == null || payment.getPaymentStatus() == null
+                                ? null
+                                : payment.getPaymentStatus().name()
+                )
+                .transactionCode(payment == null ? null : payment.getTransactionCode())
+                .qrCodeUrl(payment == null ? null : buildQrCodeUrl(payment))
                 .createdAt(order.getCreatedAt())
-
                 .items(items.stream()
                         .map(item -> toItemResponse(item, reviewsByOrderItemId))
                         .toList())
@@ -377,19 +396,15 @@ public class UserOrderServiceImpl implements UserOrderService {
 
         return UserOrderResponse.Item.builder()
                 .orderItemId(item.getOrderItemId())
-
                 .productId(product == null ? null : product.getProductId())
                 .productName(product == null ? null : product.getProductName())
                 .thumbnailUrl(product == null ? null : product.getThumbnailUrl())
-
                 .variantId(variant == null ? null : variant.getVariantId())
                 .variantName(variant == null ? null : variant.getVariantName())
                 .sku(variant == null ? null : variant.getSku())
-
                 .quantity(item.getQuantity())
                 .price(item.getPrice())
                 .originalPrice(variant == null ? null : variant.getOriginalPrice())
-
                 .reviewed(review != null)
                 .reviewId(review == null ? null : review.getReviewId())
                 .build();
@@ -501,5 +516,58 @@ public class UserOrderServiceImpl implements UserOrderService {
         }
 
         return "DH" + String.format("%06d", orderId);
+    }
+
+    private String buildQrCodeUrl(Payment payment) {
+        if (!isSePayPayment(payment)) {
+            return null;
+        }
+
+        if (!sePayProperties.isEnabled()) {
+            return null;
+        }
+
+        String accountNumber = normalizeText(sePayProperties.getAccountNumber());
+        String bankName = normalizeText(sePayProperties.getBankName());
+
+        if (accountNumber == null || bankName == null) {
+            return null;
+        }
+
+        BigDecimal amount = safeMoney(payment.getOrder().getTotalAmount())
+                .setScale(0, RoundingMode.HALF_UP);
+
+        String template = normalizeText(sePayProperties.getQrTemplate());
+
+        return "https://qr.sepay.vn/img"
+                + "?acc=" + encode(accountNumber)
+                + "&bank=" + encode(bankName)
+                + "&amount=" + encode(amount.toPlainString())
+                + "&des=" + encode(payment.getTransactionCode())
+                + "&template=" + encode(template == null ? "compact" : template);
+    }
+
+    private boolean isSePayPayment(Payment payment) {
+        return payment != null
+                && payment.getTransactionCode() != null
+                && payment.getTransactionCode().startsWith("SP")
+                && (
+                payment.getPaymentMethod() == Payment.PaymentMethod.sepay
+                        || payment.getPaymentMethod() == Payment.PaymentMethod.bank_transfer
+        );
+    }
+
+    private String toClientPaymentMethod(Payment payment) {
+        if (payment == null || payment.getPaymentMethod() == null) {
+            return null;
+        }
+
+        return isSePayPayment(payment)
+                ? "sepay"
+                : payment.getPaymentMethod().name();
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }

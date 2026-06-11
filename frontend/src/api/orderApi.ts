@@ -53,6 +53,19 @@ export interface UserOrder {
     ghnOrderCode?: string | null
     trackingCode?: string | null
 
+    paymentId?: number | null
+    paymentMethod?:
+        | 'cod'
+        | 'sepay'
+        | 'bank_transfer'
+        | 'vnpay'
+        | 'credit_card'
+        | 'e_wallet'
+        | null
+    paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded' | null
+    transactionCode?: string | null
+    qrCodeUrl?: string | null
+
     createdAt?: string | null
 
     items: UserOrderItem[]
@@ -122,9 +135,9 @@ export const orderApi = {
     },
 
     createReview: async ({
-        orderItemId,
-        data,
-    }: {
+                             orderItemId,
+                             data,
+                         }: {
         orderItemId: number
         data: CreateReviewRequest
     }): Promise<UserReview> => {

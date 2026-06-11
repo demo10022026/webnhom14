@@ -34,6 +34,12 @@ public class UserOrderResponse {
     private String ghnOrderCode;
     private String trackingCode;
 
+    private Integer paymentId;
+    private String paymentMethod;
+    private String paymentStatus;
+    private String transactionCode;
+    private String qrCodeUrl;
+
     private LocalDateTime createdAt;
 
     private List<Item> items;

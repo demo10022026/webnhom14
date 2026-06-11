@@ -3,15 +3,20 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
+    CheckCircle2,
+    Copy,
     Loader2,
     Package,
+    QrCode,
+    RefreshCw,
     Search,
     ShoppingBag,
     Store,
     Truck,
 } from 'lucide-react'
-import { orderApi, type OrderStatus, type UserOrder } from '@/api/orderApi'
+import { checkoutApi } from '@/api/checkoutApi'
 import { getApiErrorMessage } from '@/api/httpError'
+import { orderApi, type OrderStatus, type UserOrder } from '@/api/orderApi'
 import ContactSellerButton from '@/components/chat/ContactSellerButton'
 
 const ORDER_TABS: Array<{
@@ -69,7 +74,7 @@ function statusLabel(status?: string) {
 function statusSubText(status?: string) {
     switch (status) {
         case 'pending':
-            return 'Đơn hàng đang chờ xác nhận'
+            return 'Đơn hàng đang chờ thanh toán'
         case 'processing':
             return 'Người bán đang chuẩn bị hàng'
         case 'shipping':
@@ -91,6 +96,54 @@ function canCancel(status?: string) {
 
 function OrderCard({ order }: { order: UserOrder }) {
     const queryClient = useQueryClient()
+
+    const [showPaymentModal, setShowPaymentModal] = useState(false)
+
+    const canResumePayment =
+        order.orderStatus === 'pending' &&
+        order.paymentMethod === 'sepay' &&
+        order.paymentStatus === 'pending' &&
+        Boolean(order.paymentId)
+
+    const paymentStatusQuery = useQuery({
+        queryKey: ['paymentStatus', order.paymentId],
+        queryFn: () => checkoutApi.getPaymentStatus(order.paymentId!),
+        enabled: showPaymentModal && canResumePayment,
+        refetchInterval: (query) =>
+            query.state.data?.paymentStatus === 'paid' ? false : 3000,
+        retry: 1,
+    })
+
+    const currentPaymentStatus =
+        paymentStatusQuery.data?.paymentStatus ?? order.paymentStatus
+
+    const currentQrCodeUrl =
+        paymentStatusQuery.data?.qrCodeUrl ?? order.qrCodeUrl
+
+    const currentTransactionCode =
+        paymentStatusQuery.data?.transactionCode ?? order.transactionCode
+
+    const handleCopyTransferCode = async () => {
+        if (!currentTransactionCode) return
+
+        await navigator.clipboard.writeText(currentTransactionCode)
+        toast.success('Đã copy nội dung chuyển khoản')
+    }
+
+    useEffect(() => {
+        const status = paymentStatusQuery.data
+
+        if (!status || status.paymentStatus !== 'paid') {
+            return
+        }
+
+        toast.success(`Thanh toán thành công: ${status.orderCode}`)
+        setShowPaymentModal(false)
+
+        queryClient.invalidateQueries({
+            queryKey: ['myOrders'],
+        })
+    }, [paymentStatusQuery.data, queryClient])
 
     const cancelMutation = useMutation({
         mutationFn: orderApi.cancelOrder,
@@ -120,182 +173,284 @@ function OrderCard({ order }: { order: UserOrder }) {
     }
 
     return (
-        <div className="overflow-hidden rounded-sm border border-gray-100 bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-3 md:flex-row md:items-center md:justify-between">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <>
+            <div className="overflow-hidden rounded-sm border border-gray-100 bg-white shadow-sm">
+                <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-3 md:flex-row md:items-center md:justify-between">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <span className="max-w-[260px] truncate font-semibold text-gray-900">
+                            {order.shopName || 'Shop'}
+                        </span>
 
-                    <span className="max-w-[260px] truncate font-semibold text-gray-900">
-                        {order.shopName || 'Shop'}
-                    </span>
-
-                    <ContactSellerButton
-                        shopId={order.shopId}
-                        shopSlug={order.shopSlug}
-                        className="inline-flex items-center gap-1 rounded-sm bg-red-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        Chat
-                    </ContactSellerButton>
-
-                    {order.shopSlug ? (
-                        <Link
-                            to={`/shops/${order.shopSlug}`}
-                            className="inline-flex items-center gap-1 rounded-sm border border-gray-200 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                        <ContactSellerButton
+                            shopId={order.shopId}
+                            shopSlug={order.shopSlug}
+                            className="inline-flex items-center gap-1 rounded-sm bg-red-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            <Store size={13} />
-                            Xem Shop
-                        </Link>
+                            Chat
+                        </ContactSellerButton>
+
+                        {order.shopSlug ? (
+                            <Link
+                                to={`/shops/${order.shopSlug}`}
+                                className="inline-flex items-center gap-1 rounded-sm border border-gray-200 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                            >
+                                <Store size={13} />
+                                Xem Shop
+                            </Link>
+                        ) : (
+                            <Link
+                                to={`/search?shopName=${encodeURIComponent(order.shopName || '')}`}
+                                className="inline-flex items-center gap-1 rounded-sm border border-gray-200 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                            >
+                                <Store size={13} />
+                                Xem Shop
+                            </Link>
+                        )}
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-2 text-sm">
+                        <div className="hidden items-center gap-1 text-emerald-600 md:flex">
+                            <Truck size={16} />
+                            {statusSubText(order.orderStatus)}
+                        </div>
+
+                        <span className="hidden h-4 w-px bg-gray-200 md:inline-block" />
+
+                        <span className="font-medium text-red-500">
+                            {statusLabel(order.orderStatus)}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="divide-y divide-gray-100 px-4">
+                    {order.items.length === 0 ? (
+                        <div className="flex items-center gap-3 py-4">
+                            <div className="flex h-20 w-20 items-center justify-center bg-gray-100">
+                                <Package className="h-7 w-7 text-gray-300" />
+                            </div>
+
+                            <div className="text-sm text-gray-500">
+                                Đơn hàng chưa có sản phẩm.
+                            </div>
+                        </div>
                     ) : (
-                        <Link
-                            to={`/search?shopName=${encodeURIComponent(order.shopName || '')}`}
-                            className="inline-flex items-center gap-1 rounded-sm border border-gray-200 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50"
-                        >
-                            <Store size={13} />
-                            Xem Shop
-                        </Link>
+                        order.items.map((item) => (
+                            <Link
+                                key={item.orderItemId}
+                                to={`/products/${item.productId}`}
+                                className="flex gap-3 py-4 hover:bg-gray-50"
+                            >
+                                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-sm border border-gray-100 bg-gray-100">
+                                    {item.thumbnailUrl ? (
+                                        <img
+                                            src={item.thumbnailUrl}
+                                            alt={item.productName}
+                                            className="h-full w-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="flex h-full w-full items-center justify-center">
+                                            <Package className="h-7 w-7 text-gray-300" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                    <p className="line-clamp-2 text-sm text-gray-900 md:text-base">
+                                        {item.productName}
+                                    </p>
+
+                                    <p className="mt-1 text-sm text-gray-400">
+                                        Phân loại hàng:{' '}
+                                        {item.variantName || item.sku || 'Mặc định'}
+                                    </p>
+
+                                    <p className="mt-1 text-sm text-gray-700">
+                                        x{item.quantity}
+                                    </p>
+                                </div>
+
+                                <div className="flex shrink-0 flex-col items-end justify-center text-sm">
+                                    {item.originalPrice &&
+                                        item.originalPrice > item.price && (
+                                            <span className="text-gray-400 line-through">
+                                                {formatMoney(item.originalPrice)}
+                                            </span>
+                                        )}
+
+                                    <span className="text-red-500">
+                                        {formatMoney(item.price)}
+                                    </span>
+                                </div>
+                            </Link>
+                        ))
                     )}
                 </div>
 
-                <div className="flex shrink-0 items-center gap-2 text-sm">
-                    <div className="hidden items-center gap-1 text-emerald-600 md:flex">
-                        <Truck size={16} />
-                        {statusSubText(order.orderStatus)}
+                <div className="border-t border-gray-100 bg-white px-4 py-4">
+                    <div className="flex items-center justify-end gap-3">
+                        <span className="text-sm text-gray-700">Thành tiền:</span>
+
+                        <span className="text-2xl font-medium text-red-500">
+                            {formatMoney(order.totalAmount)}
+                        </span>
                     </div>
 
-                    <span className="hidden h-4 w-px bg-gray-200 md:inline-block" />
+                    <div className="mt-2 text-right text-xs text-gray-400">
+                        Mã đơn: {order.orderCode} · Đặt lúc {formatDate(order.createdAt)}
+                    </div>
 
-                    <span className="font-medium text-red-500">
-                        {statusLabel(order.orderStatus)}
-                    </span>
+                    {order.trackingCode && (
+                        <div className="mt-1 text-right text-xs text-gray-400">
+                            Mã vận đơn: {order.trackingCode}
+                        </div>
+                    )}
+
+                    <div className="mt-4 flex flex-wrap justify-end gap-2">
+                        {order.orderStatus === 'delivered' && (
+                            <button
+                                type="button"
+                                className="rounded-sm bg-red-500 px-8 py-2 text-sm font-medium text-white hover:bg-red-600"
+                            >
+                                Đánh Giá
+                            </button>
+                        )}
+
+                        {(order.orderStatus === 'delivered' ||
+                            order.orderStatus === 'cancelled') && (
+                            <button
+                                type="button"
+                                onClick={handleBuyAgain}
+                                className="rounded-sm bg-red-500 px-8 py-2 text-sm font-medium text-white hover:bg-red-600"
+                            >
+                                Mua Lại
+                            </button>
+                        )}
+
+                        {canResumePayment && (
+                            <button
+                                type="button"
+                                onClick={() => setShowPaymentModal(true)}
+                                className="rounded-sm border border-orange-500 px-8 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50"
+                            >
+                                Thanh toán tiếp
+                            </button>
+                        )}
+
+                        {canCancel(order.orderStatus) && (
+                            <button
+                                type="button"
+                                disabled={cancelMutation.isPending}
+                                onClick={handleCancel}
+                                className="rounded-sm border border-gray-200 px-8 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                            >
+                                {cancelMutation.isPending
+                                    ? 'Đang hủy...'
+                                    : 'Hủy Đơn Hàng'}
+                            </button>
+                        )}
+
+                        <ContactSellerButton
+                            shopId={order.shopId}
+                            shopSlug={order.shopSlug}
+                            className="rounded-sm border border-gray-200 px-8 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            Liên Hệ Người Bán
+                        </ContactSellerButton>
+                    </div>
                 </div>
             </div>
 
-            <div className="divide-y divide-gray-100 px-4">
-                {order.items.length === 0 ? (
-                    <div className="flex items-center gap-3 py-4">
-                        <div className="flex h-20 w-20 items-center justify-center bg-gray-100">
-                            <Package className="h-7 w-7 text-gray-300" />
-                        </div>
+            {showPaymentModal && canResumePayment && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+                        <div className="mb-4 flex items-center justify-between">
+                            <div>
+                                <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                                    <QrCode className="h-5 w-5 text-orange-500" />
+                                    Thanh toán SePay
+                                </h3>
 
-                        <div className="text-sm text-gray-500">
-                            Đơn hàng chưa có sản phẩm.
-                        </div>
-                    </div>
-                ) : (
-                    order.items.map((item) => (
-                        <Link
-                            key={item.orderItemId}
-                            to={`/products/${item.productId}`}
-                            className="flex gap-3 py-4 hover:bg-gray-50"
-                        >
-                            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-sm border border-gray-100 bg-gray-100">
-                                {item.thumbnailUrl ? (
-                                    <img
-                                        src={item.thumbnailUrl}
-                                        alt={item.productName}
-                                        className="h-full w-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="flex h-full w-full items-center justify-center">
-                                        <Package className="h-7 w-7 text-gray-300" />
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                                <p className="line-clamp-2 text-sm text-gray-900 md:text-base">
-                                    {item.productName}
-                                </p>
-
-                                <p className="mt-1 text-sm text-gray-400">
-                                    Phân loại hàng:{' '}
-                                    {item.variantName || item.sku || 'Mặc định'}
-                                </p>
-
-                                <p className="mt-1 text-sm text-gray-700">
-                                    x{item.quantity}
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Đơn {order.orderCode}
                                 </p>
                             </div>
 
-                            <div className="flex shrink-0 flex-col items-end justify-center text-sm">
-                                {item.originalPrice &&
-                                    item.originalPrice > item.price && (
-                                        <span className="text-gray-400 line-through">
-                                            {formatMoney(item.originalPrice)}
-                                        </span>
-                                    )}
+                            <button
+                                type="button"
+                                onClick={() => setShowPaymentModal(false)}
+                                className="rounded-full px-3 py-1 text-sm text-gray-500 hover:bg-gray-100"
+                            >
+                                Đóng
+                            </button>
+                        </div>
 
-                                <span className="text-red-500">
-                                    {formatMoney(item.price)}
+                        {currentQrCodeUrl ? (
+                            <img
+                                src={currentQrCodeUrl}
+                                alt="QR thanh toán SePay"
+                                className="mx-auto h-64 w-64 rounded-xl border object-contain"
+                            />
+                        ) : (
+                            <div className="rounded-xl border border-dashed p-6 text-center text-sm text-gray-500">
+                                Chưa có QR. Kiểm tra cấu hình SePay trong backend.
+                            </div>
+                        )}
+
+                        <div className="mt-4 space-y-3 text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-gray-500">Số tiền</span>
+
+                                <span className="font-semibold text-red-500">
+                                    {formatMoney(order.totalAmount)}
                                 </span>
                             </div>
-                        </Link>
-                    ))
-                )}
-            </div>
 
-            <div className="border-t border-gray-100 bg-white px-4 py-4">
-                <div className="flex items-center justify-end gap-3">
-                    <span className="text-sm text-gray-700">Thành tiền:</span>
+                            <div className="rounded-xl bg-gray-50 p-3">
+                                <div className="mb-1 text-gray-500">
+                                    Nội dung chuyển khoản
+                                </div>
 
-                    <span className="text-2xl font-medium text-red-500">
-                        {formatMoney(order.totalAmount)}
-                    </span>
-                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="font-mono font-semibold text-gray-900">
+                                        {currentTransactionCode || '-'}
+                                    </span>
 
-                <div className="mt-2 text-right text-xs text-gray-400">
-                    Mã đơn: {order.orderCode} · Đặt lúc {formatDate(order.createdAt)}
-                </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleCopyTransferCode}
+                                        disabled={!currentTransactionCode}
+                                        className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs text-gray-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        <Copy className="h-3.5 w-3.5" />
+                                        Copy
+                                    </button>
+                                </div>
+                            </div>
 
-                {order.trackingCode && (
-                    <div className="mt-1 text-right text-xs text-gray-400">
-                        Mã vận đơn: {order.trackingCode}
+                            <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3">
+                                <span className="text-gray-500">Trạng thái</span>
+
+                                {currentPaymentStatus === 'paid' ? (
+                                    <span className="inline-flex items-center gap-1 font-medium text-green-600">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        Đã thanh toán
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1 font-medium text-orange-600">
+                                        <RefreshCw className="h-4 w-4 animate-spin" />
+                                        Đang chờ
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        <p className="mt-4 text-xs text-gray-500">
+                            Hệ thống sẽ tự cập nhật khi SePay gửi webhook thanh toán thành công.
+                        </p>
                     </div>
-                )}
-
-                <div className="mt-4 flex flex-wrap justify-end gap-2">
-                    {order.orderStatus === 'delivered' && (
-                        <button
-                            type="button"
-                            className="rounded-sm bg-red-500 px-8 py-2 text-sm font-medium text-white hover:bg-red-600"
-                        >
-                            Đánh Giá
-                        </button>
-                    )}
-
-                    {(order.orderStatus === 'delivered' ||
-                        order.orderStatus === 'cancelled') && (
-                        <button
-                            type="button"
-                            onClick={handleBuyAgain}
-                            className="rounded-sm bg-red-500 px-8 py-2 text-sm font-medium text-white hover:bg-red-600"
-                        >
-                            Mua Lại
-                        </button>
-                    )}
-
-                    {canCancel(order.orderStatus) && (
-                        <button
-                            type="button"
-                            disabled={cancelMutation.isPending}
-                            onClick={handleCancel}
-                            className="rounded-sm border border-gray-200 px-8 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                        >
-                            {cancelMutation.isPending
-                                ? 'Đang hủy...'
-                                : 'Hủy Đơn Hàng'}
-                        </button>
-                    )}
-
-                    <ContactSellerButton
-                        shopId={order.shopId}
-                        shopSlug={order.shopSlug}
-                        className="rounded-sm border border-gray-200 px-8 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        Liên Hệ Người Bán
-                    </ContactSellerButton>
                 </div>
-            </div>
-        </div>
+            )}
+        </>
     )
 }
 
